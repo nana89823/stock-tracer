@@ -67,12 +67,20 @@ class MajorHoldersSpider(scrapy.Spider):
             if len(row) < 6:
                 continue
 
+            level = self._parse_int(row[2])
+
+            # Drop original level 16 (meaningless); remap level 17 -> 16
+            if level == 16:
+                continue
+            if level == 17:
+                level = 16
+
             yield MajorHoldersItem(
                 date=self._convert_date(row[0]),
                 stock_id=row[1].strip(),
-                holding_level=self._parse_int(row[2]),
+                holding_level=level,
                 holder_count=self._parse_int(row[3]),
-                share_count=self._parse_int(row[4]),
+                share_count=self._parse_int(row[4]) // 1000,  # 股數→張數
                 holding_ratio=self._parse_float(row[5]),
             )
 
