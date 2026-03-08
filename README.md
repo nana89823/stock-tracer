@@ -1,141 +1,222 @@
 # Stock Tracer
 
-台灣股市資料爬蟲，用於自動選股分析的資料收集工具。
+台灣股市追蹤分析平台 — 整合爬蟲資料收集、籌碼分析、技術圖表與回測系統。
 
-## 資料來源
+## 技術架構
 
-| Spider | 資料 | 來源 |
-|--------|------|------|
-| `raw_price` | 個股成交價格 | TWSE 證交所 |
-| `raw_chip` | 三大法人買賣超 | TWSE 證交所 |
-| `major_holders` | 集保戶股權分散表 | TDCC 集保中心 |
+| 層級 | 技術 |
+|------|------|
+| 前端 | Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui |
+| 後端 | FastAPI + SQLAlchemy (async) + Pydantic |
+| 資料庫 | TimescaleDB (PostgreSQL 16) |
+| 快取 | Redis 7 |
+| 任務佇列 | Celery + Redis Broker |
+| 爬蟲 | Scrapy 2.11+ |
+| 反向代理 | Nginx (SSL/TLS) |
+| CI/CD | GitHub Actions |
+| 容器化 | Docker Compose |
+
+## 功能特色
+
+- 股票搜尋（代號/名稱模糊搜尋，支援分頁）
+- K 線圖（日 K 技術圖表）
+- 籌碼分析（三大法人買賣超、大戶持股分布）
+- 融資融券數據
+- 券商分點進出
+- 回測系統（Celery 非同步執行，支援多策略）
+- Dark mode 主題切換
+- JWT 認證 + 登入頻率限制
+- Loading Skeleton 骨架屏
 
 ## 環境需求
 
 - Python 3.12+
-- Scrapy 2.11+
+- Node.js 18+
+- PostgreSQL 16+ (或 TimescaleDB)
+- Redis 7+
 
-## 安裝
+## 快速開始
+
+### 1. 環境設定
 
 ```bash
+cp .env.example .env
+# 編輯 .env 設定資料庫和 Redis 連線
+```
+
+### 2. Docker Compose 啟動（推薦）
+
+```bash
+docker compose up -d
+```
+
+服務會在以下埠啟動：
+- 前端：http://localhost:3000
+- 後端 API：http://localhost:8001
+- Nginx：http://localhost:80
+
+### 3. 本地開發
+
+```bash
+# 後端
+cd backend
 pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+# 前端
+cd frontend
+npm install
+npm run dev
+
+# Celery Worker（回測任務）
+cd backend
+celery -A app.celery_app worker --loglevel=info --concurrency=2
 ```
 
-## 使用方式
+## API 版本
 
-### 執行爬蟲
+API 路徑格式：`/api/v1/{resource}`
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/api/v1/auth/register` | 註冊 |
+| POST | `/api/v1/auth/login` | 登入（取得 JWT） |
+| GET | `/api/v1/auth/me` | 當前使用者 |
+| GET | `/api/v1/stocks/?q=&skip=&limit=` | 搜尋股票 |
+| GET | `/api/v1/stocks/{id}` | 股票詳情 |
+| GET | `/api/v1/stocks/{id}/prices` | 價格資料 |
+| GET | `/api/v1/stocks/{id}/chips` | 三大法人籌碼 |
+| GET | `/api/v1/stocks/{id}/holders` | 大戶持股分布 |
+| GET | `/api/v1/stocks/{id}/margin` | 融資融券 |
+| GET | `/api/v1/stocks/{id}/brokers` | 券商分點 |
+| GET | `/api/v1/backtests/` | 回測列表 |
+| POST | `/api/v1/backtests/` | 建立回測 |
+| GET | `/api/v1/backtests/{id}` | 回測詳情 |
+| GET | `/health` | 健康檢查（DB + Redis） |
+
+前端透過 Next.js rewrite 代理：`/api/*` → `/api/v1/*`，前端程式碼中使用 `/api/` 即可。
+
+## 爬蟲
+
+### 資料來源
+
+| Spider | 資料 | 來源 | 市場 |
+|--------|------|------|------|
+| `raw_price` | 個股成交價格 | TWSE 證交所 | 上市 |
+| `raw_chip` | 三大法人買賣超 | TWSE 證交所 | 上市 |
+| `major_holders` | 集保戶股權分散表 | TDCC 集保中心 | 全部 |
+| `margin_trading` | 融資融券餘額 | TWSE 證交所 | 上市 |
+| `broker_trading` | 券商分點進出 | TWSE 證交所 | 上市 |
+| `tpex_price` | 個股成交價格 | TPEx 櫃買中心 | 上櫃 |
+| `tpex_chip` | 三大法人買賣超 | TPEx 櫃買中心 | 上櫃 |
+| `tpex_margin` | 融資融券餘額 | TPEx 櫃買中心 | 上櫃 |
+
+### 手動執行
 
 ```bash
-# 抓取個股成交價格
 scrapy crawl raw_price
-
-# 抓取三大法人買賣超
 scrapy crawl raw_chip
-
-# 抓取大戶持股分布
 scrapy crawl major_holders
-
-# 一次執行全部
-scrapy crawl raw_price && scrapy crawl raw_chip && scrapy crawl major_holders
 ```
 
-### 輸出格式
+### 排程（Crontab）
 
-CSV 檔案輸出至 `output/` 目錄，命名格式：`{YYYYMMDD}_{spider_name}.csv`
+```bash
+# 安裝排程
+bash scripts/setup_crontab.sh install
 
+# 預設排程：
+# 週一~五 18:00 — raw_price, raw_chip, margin_trading, broker_trading
+# 週六 10:00 — major_holders
+
+# 移除排程
+bash scripts/setup_crontab.sh remove
 ```
-output/
-├── 20260127_raw_price.csv
-├── 20260127_raw_chip.csv
-└── 20260127_major_holders.csv
-```
-
-## 資料欄位說明
-
-### raw_price (個股成交價格)
-
-| 欄位 | 說明 |
-|------|------|
-| date | 日期 (YYYY-MM-DD) |
-| stock_id | 證券代號 |
-| stock_name | 證券名稱 |
-| open_price | 開盤價 |
-| high_price | 最高價 |
-| low_price | 最低價 |
-| close_price | 收盤價 |
-| price_change | 漲跌價差 |
-| trade_volume | 成交股數 |
-| trade_value | 成交金額 |
-| transaction_count | 成交筆數 |
-
-### raw_chip (三大法人買賣超)
-
-| 欄位 | 說明 |
-|------|------|
-| date | 日期 |
-| stock_id | 證券代號 |
-| stock_name | 證券名稱 |
-| foreign_buy | 外資買進股數 |
-| foreign_sell | 外資賣出股數 |
-| foreign_net | 外資買賣超 |
-| trust_buy | 投信買進股數 |
-| trust_sell | 投信賣出股數 |
-| trust_net | 投信買賣超 |
-| dealer_net | 自營商買賣超 |
-| total_net | 三大法人合計買賣超 |
-
-### major_holders (大戶持股分布)
-
-| 欄位 | 說明 |
-|------|------|
-| date | 資料日期 |
-| stock_id | 證券代號 |
-| holding_level | 持股分級 (1-17) |
-| holder_count | 人數 |
-| share_count | 股數 |
-| holding_ratio | 占集保庫存比例 (%) |
-
-#### 持股分級對照表
-
-| 級距 | 持股張數 |
-|------|----------|
-| 1 | 1-999 股 |
-| 2 | 1,000-5,000 股 |
-| ... | ... |
-| 11 | 200,001-400,000 股 (200-400張) |
-| 12 | 400,001-600,000 股 (400張以上，大戶起始) |
-| 13-17 | 600,001 股以上 |
-
-**400張以上大戶** = `holding_level >= 12`
 
 ## 測試
 
 ```bash
-# 執行所有測試
-pytest tests/ -v
+# 後端測試
+cd backend
+python -m pytest tests/ -v
 
-# 執行測試並顯示覆蓋率
-pytest tests/ --cov=stock_tracer --cov-report=term-missing
+# 前端 TypeScript 檢查
+cd frontend
+npx tsc --noEmit
 ```
 
 ## 專案結構
 
 ```
-stock_tracer/
-├── scrapy.cfg
-├── pytest.ini
-├── requirements.txt
-├── stock_tracer/
-│   ├── items.py              # 資料結構定義
-│   ├── pipelines.py          # CSV 輸出處理
-│   ├── settings.py           # Scrapy 設定
+stock-tracer/
+├── backend/
+│   ├── app/
+│   │   ├── main.py                 # FastAPI 入口
+│   │   ├── config.py               # 設定（環境變數）
+│   │   ├── database.py             # SQLAlchemy async engine
+│   │   ├── cache.py                # Redis 快取
+│   │   ├── celery_app.py           # Celery 設定
+│   │   ├── logging_config.py       # 結構化日誌
+│   │   ├── api/
+│   │   │   ├── stocks.py           # 股票 API
+│   │   │   └── backtests.py        # 回測 API
+│   │   ├── auth/
+│   │   │   ├── router.py           # 認證路由
+│   │   │   ├── security.py         # JWT + 密碼雜湊
+│   │   │   └── rate_limit.py       # 登入頻率限制
+│   │   ├── engine/
+│   │   │   ├── backtest_runner.py   # 回測引擎
+│   │   │   └── strategies.py       # 回測策略
+│   │   ├── models/                  # SQLAlchemy ORM
+│   │   ├── schemas/                 # Pydantic schemas
+│   │   ├── tasks/
+│   │   │   └── backtest_task.py     # Celery 回測任務
+│   │   └── middleware/
+│   │       └── logging.py           # 請求日誌中介層
+│   ├── alembic/                     # DB migrations
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx           # Root layout (ThemeProvider)
+│   │   │   ├── login/page.tsx       # 登入頁
+│   │   │   ├── register/page.tsx    # 註冊頁
+│   │   │   └── (dashboard)/
+│   │   │       ├── layout.tsx       # Dashboard layout (AuthGuard)
+│   │   │       ├── page.tsx         # 首頁（股票搜尋）
+│   │   │       ├── stocks/[stockId] # 股票詳情頁
+│   │   │       └── backtests/       # 回測頁面
+│   │   ├── components/
+│   │   │   ├── charts/              # K線、籌碼、融資券圖表
+│   │   │   ├── skeletons/           # Loading 骨架屏
+│   │   │   └── ui/                  # shadcn/ui 元件
+│   │   ├── contexts/AuthContext.tsx  # 認證 Context
+│   │   ├── lib/
+│   │   │   ├── api.ts               # Axios 實例
+│   │   │   ├── auth.ts              # Token 管理
+│   │   │   └── schemas.ts           # Zod 驗證
+│   │   └── hooks/useDebounce.ts
+│   ├── next.config.ts               # API rewrite 代理
+│   └── Dockerfile
+├── stock_tracer/                     # Scrapy 爬蟲
 │   └── spiders/
-│       ├── raw_price.py      # 成交價格爬蟲
-│       ├── raw_chip.py       # 三大法人爬蟲
-│       └── major_holders.py  # 大戶持股爬蟲
-├── tests/                    # 測試案例
-└── output/                   # CSV 輸出目錄
+├── nginx/                            # Nginx 反向代理設定
+├── scripts/                          # 排程、備份、快取清理
+├── tests/                            # 測試
+├── .github/workflows/ci.yml          # CI/CD
+├── docker-compose.yml
+└── .env.example
 ```
+
+## 維運腳本
+
+| 腳本 | 說明 |
+|------|------|
+| `scripts/run_spider.sh` | 執行爬蟲 + 清除快取 |
+| `scripts/setup_crontab.sh` | 安裝/移除排程 |
+| `scripts/clear_cache.sh` | 清除 Redis 股票快取 |
+| `scripts/backup_db.sh` | 資料庫備份（7 天保留） |
+| `scripts/restore_db.sh` | 資料庫還原 |
 
 ## License
 

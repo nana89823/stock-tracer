@@ -28,8 +28,16 @@ DEFAULT_REQUEST_HEADERS = {
 
 # Configure item pipelines
 ITEM_PIPELINES = {
+    "stock_tracer.pipelines.DatabasePipeline": 200,
     "stock_tracer.pipelines.CsvExportPipeline": 300,
 }
+
+# Database connection (from environment variable)
+import os
+DATABASE_URL_SYNC = os.environ.get(
+    "DATABASE_URL_SYNC",
+    "postgresql://stock_tracer:stock_tracer_dev@localhost:5433/stock_tracer"
+)
 
 # Enable and configure the AutoThrottle extension
 AUTOTHROTTLE_ENABLED = True

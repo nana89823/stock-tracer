@@ -14,6 +14,7 @@ class RawChipSpider(scrapy.Spider):
     """Spider to scrape three major institutional investors trading data."""
 
     name = "raw_chip"
+    market_type = "twse"
     start_urls = [
         "https://www.twse.com.tw/fund/T86?response=json&date=&selectType=ALL"
     ]
