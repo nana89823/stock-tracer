@@ -15,6 +15,7 @@ class RawPriceSpider(scrapy.Spider):
     """Spider to scrape daily stock prices from TWSE."""
 
     name = "raw_price"
+    market_type = "twse"
     start_urls = [
         "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=open_data"
     ]
