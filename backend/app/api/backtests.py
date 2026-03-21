@@ -1,9 +1,11 @@
+import csv
+import io
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 from sqlalchemy.orm import selectinload
 
 from app.auth.security import get_current_user
@@ -173,3 +175,43 @@ async def get_backtest(
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
+
+
+@router.get("/{backtest_id}/export")
+async def export_backtest_csv(
+    backtest_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Backtest)
+        .where(Backtest.id == backtest_id, Backtest.created_by == current_user.id)
+        .options(selectinload(Backtest.trades))
+    )
+    backtest = result.scalar_one_or_none()
+    if not backtest:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "action", "stock_id", "price", "shares", "commission", "tax", "pnl"])
+
+    for trade in sorted(backtest.trades, key=lambda t: t.trade_date):
+        writer.writerow([
+            trade.trade_date.isoformat(),
+            trade.direction,
+            trade.stock_id,
+            trade.price,
+            trade.quantity,
+            trade.commission,
+            trade.tax,
+            trade.realized_pnl if trade.realized_pnl is not None else "",
+        ])
+
+    output.seek(0)
+    filename = f"backtest_{backtest_id}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
