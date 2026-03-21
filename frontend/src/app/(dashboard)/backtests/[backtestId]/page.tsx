@@ -18,6 +18,7 @@ import { TrendingUp, TrendingDown, Target, BarChart3, Award, Repeat } from "luci
 import EquityCurveChart from "@/components/charts/EquityCurveChart";
 import BacktestDetailSkeleton from "@/components/skeletons/BacktestDetailSkeleton";
 import type { Backtest, Strategy } from "@/types";
+import { toast } from "sonner";
 
 const STATUS_MAP: Record<
   Backtest["status"],
@@ -61,6 +62,7 @@ export default function BacktestDetailPage() {
       })
       .catch(() => {
         setError("載入回測資料失敗");
+        toast.error("載入回測資料失敗");
         return null;
       });
   }, [backtestId]);
@@ -81,7 +83,9 @@ export default function BacktestDetailPage() {
               const matched = strategies.find((s) => s.id === bt.strategy_id);
               if (matched) setStrategy(matched);
             })
-            .catch(() => {});
+            .catch(() => {
+              toast.error("載入策略資訊失敗");
+            });
         }
       })
       .finally(() => setLoading(false));

@@ -30,6 +30,7 @@ import StockDetailSkeleton from "@/components/skeletons/StockDetailSkeleton";
 import WatchlistButton from "@/components/WatchlistButton";
 import DateRangePicker from "@/components/DateRangePicker";
 import type { Stock, RawPrice, RawChip, MajorHolder, MarginTrading, BrokerTrading } from "@/types";
+import { toast } from "sonner";
 
 const LEVEL_LABELS: Record<number, string> = {
   1: "1-999",
@@ -91,8 +92,14 @@ export default function StockDetailPage() {
       api.get(`/api/stocks/${stockId}/holders`),
       api.get(`/api/stocks/${stockId}/margin`, {
         params: { start_date: startDate, end_date: endDate },
-      }).catch(() => ({ data: [] })),
-      api.get(`/api/stocks/${stockId}/brokers`).catch(() => ({ data: [] })),
+      }).catch(() => {
+        toast.error("載入融資融券資料失敗");
+        return { data: [] };
+      }),
+      api.get(`/api/stocks/${stockId}/brokers`).catch(() => {
+        toast.error("載入券商資料失敗");
+        return { data: [] };
+      }),
     ])
       .then(([stockRes, priceRes, chipRes, holderRes, marginRes, brokerRes]) => {
         setStock(safeParse(StockSchema, stockRes.data));
@@ -102,7 +109,10 @@ export default function StockDetailPage() {
         setMargin(safeParse(MarginTradingListSchema, marginRes.data));
         setBrokers(safeParse(BrokerTradingListSchema, brokerRes.data));
       })
-      .catch(() => setError("載入資料失敗"))
+      .catch(() => {
+        setError("載入資料失敗");
+        toast.error("載入資料失敗");
+      })
       .finally(() => setLoading(false));
   }, [stockId, startDate, endDate]);
 
