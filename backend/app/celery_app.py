@@ -11,8 +11,8 @@ celery.conf.update(
     task_serializer="json",
     result_serializer="json",
     task_track_started=True,
-    task_time_limit=600,
-    task_soft_time_limit=540,
+    task_time_limit=960,
+    task_soft_time_limit=900,
     timezone="Asia/Taipei",
 )
 
