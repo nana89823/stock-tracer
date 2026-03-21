@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { BarChart3, LineChart, TrendingUp, X } from "lucide-react";
 
 const navItems = [
-  { href: "/", label: "市場總覽", icon: BarChart3 },
+  { href: "/home", label: "市場總覽", icon: BarChart3 },
   { href: "/backtests", label: "回測", icon: LineChart },
 ];
 
@@ -19,7 +19,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/home" ? pathname === "/home" : pathname.startsWith(href);
 
   return (
     <>
@@ -40,7 +40,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="px-5 py-5 border-b border-slate-700/50 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
+          <Link href="/home" className="flex items-center gap-2.5" onClick={onClose}>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
               <TrendingUp className="h-4.5 w-4.5 text-white" />
             </div>

@@ -23,7 +23,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      router.push("/");
+      router.push("/home");
     } catch {
       setError("登入失敗，請檢查帳號密碼");
     } finally {

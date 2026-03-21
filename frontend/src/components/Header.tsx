@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import { LogOut, Menu, Sun, Moon } from "lucide-react";
 
 function getPageTitle(pathname: string): string {
-  if (pathname === "/") return "市場總覽";
+  if (pathname === "/home") return "市場總覽";
   if (pathname.startsWith("/stocks/")) return "個股分析";
   if (pathname === "/backtests/new") return "新增回測";
   if (pathname === "/backtests") return "回測列表";
