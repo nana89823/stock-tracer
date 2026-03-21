@@ -7,6 +7,8 @@ RUN npm ci
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
 WORKDIR /app
+ARG API_BACKEND_URL=http://localhost:8001
+ENV API_BACKEND_URL=${API_BACKEND_URL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
