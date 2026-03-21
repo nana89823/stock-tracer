@@ -76,5 +76,7 @@ celery.conf.beat_schedule = {
     },
 }
 
-# Auto-discover tasks in app/tasks/
-celery.autodiscover_tasks(["app.tasks"])
+# Explicitly import tasks (autodiscover unreliable with Docker volume mounts)
+import app.tasks.crawl_task  # noqa: F401, E402
+import app.tasks.backtest_task  # noqa: F401, E402
+import app.tasks.alert_checker  # noqa: F401, E402
