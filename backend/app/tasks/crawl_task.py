@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 # Locally: project root (parent of backend/)
 SCRAPY_PROJECT_DIR = os.environ.get("SCRAPY_PROJECT_DIR", "/scrapy_project")
 
+# Spiders that need longer timeout (large CSV downloads)
+SLOW_SPIDERS = {"major_holders", "raw_chip", "broker_trading"}
+DEFAULT_TIMEOUT = 300
+SLOW_TIMEOUT = 900
+
 
 @celery.task(name="app.tasks.crawl_task.run_spider", bind=True, max_retries=2)
 def run_spider(self, spider_name: str) -> dict:
@@ -21,7 +26,8 @@ def run_spider(self, spider_name: str) -> dict:
     Returns:
         dict with status and details.
     """
-    logger.info("Starting spider '%s' (task %s)", spider_name, self.request.id)
+    timeout = SLOW_TIMEOUT if spider_name in SLOW_SPIDERS else DEFAULT_TIMEOUT
+    logger.info("Starting spider '%s' (task %s, timeout=%ds)", spider_name, self.request.id, timeout)
 
     try:
         result = subprocess.run(
@@ -29,7 +35,7 @@ def run_spider(self, spider_name: str) -> dict:
             cwd=SCRAPY_PROJECT_DIR,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
         )
 
         if result.returncode == 0:
