@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,37 @@ export default function AlertsPage() {
   const [formCondition, setFormCondition] = useState<"above" | "below">("above");
   const [formThreshold, setFormThreshold] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<{ stock_id: string; stock_name: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debouncedStockId = useDebounce(formStockId, 300);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (debouncedStockId.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    api
+      .get("/api/stocks/", { params: { q: debouncedStockId, limit: 5 } })
+      .then((res) => {
+        setSuggestions(res.data);
+        setShowSuggestions(true);
+      })
+      .catch(() => setSuggestions([]));
+  }, [debouncedStockId]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchAlerts = useCallback(() => {
     setLoading(true);
@@ -138,12 +170,40 @@ export default function AlertsPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">股票代號</label>
-                <Input
-                  placeholder="例如 2330"
-                  value={formStockId}
-                  onChange={(e) => setFormStockId(e.target.value)}
-                  required
-                />
+                <div className="relative" ref={suggestionsRef}>
+                  <Input
+                    placeholder="例如 2330"
+                    value={formStockId}
+                    onChange={(e) => {
+                      setFormStockId(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    autoComplete="off"
+                    required
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+                      {suggestions.map((s) => (
+                        <button
+                          key={s.stock_id}
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                          onClick={() => {
+                            setFormStockId(s.stock_id);
+                            setShowSuggestions(false);
+                            setSuggestions([]);
+                          }}
+                        >
+                          <span className="font-mono">{s.stock_id}</span>
+                          <span className="text-muted-foreground">{s.stock_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">條件</label>

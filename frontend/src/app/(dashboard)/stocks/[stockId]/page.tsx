@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
 import {
@@ -27,7 +27,10 @@ import HoldersChart from "@/components/charts/HoldersChart";
 import MarginChart from "@/components/charts/MarginChart";
 import BrokerChart from "@/components/charts/BrokerChart";
 import StockDetailSkeleton from "@/components/skeletons/StockDetailSkeleton";
+import WatchlistButton from "@/components/WatchlistButton";
+import DateRangePicker from "@/components/DateRangePicker";
 import type { Stock, RawPrice, RawChip, MajorHolder, MarginTrading, BrokerTrading } from "@/types";
+import { toast } from "sonner";
 
 const LEVEL_LABELS: Record<number, string> = {
   1: "1-999",
@@ -61,30 +64,42 @@ export default function StockDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  const [startDate, setStartDate] = useState(() =>
+    formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  );
+  const [endDate, setEndDate] = useState(() => formatDate(new Date()));
+
+  const handleDateChange = useCallback((start: string, end: string) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
+
   useEffect(() => {
     if (!stockId) return;
 
     setLoading(true);
     setError("");
 
-    const today = new Date().toISOString().split("T")[0];
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-
     Promise.all([
       api.get(`/api/stocks/${stockId}`),
       api.get(`/api/stocks/${stockId}/prices`, {
-        params: { start_date: thirtyDaysAgo, end_date: today },
+        params: { start_date: startDate, end_date: endDate },
       }),
       api.get(`/api/stocks/${stockId}/chips`, {
-        params: { start_date: thirtyDaysAgo, end_date: today },
+        params: { start_date: startDate, end_date: endDate },
       }),
       api.get(`/api/stocks/${stockId}/holders`),
       api.get(`/api/stocks/${stockId}/margin`, {
-        params: { start_date: thirtyDaysAgo, end_date: today },
-      }).catch(() => ({ data: [] })),
-      api.get(`/api/stocks/${stockId}/brokers`).catch(() => ({ data: [] })),
+        params: { start_date: startDate, end_date: endDate },
+      }).catch(() => {
+        toast.error("載入融資融券資料失敗");
+        return { data: [] };
+      }),
+      api.get(`/api/stocks/${stockId}/brokers`).catch(() => {
+        toast.error("載入券商資料失敗");
+        return { data: [] };
+      }),
     ])
       .then(([stockRes, priceRes, chipRes, holderRes, marginRes, brokerRes]) => {
         setStock(safeParse(StockSchema, stockRes.data));
@@ -94,9 +109,12 @@ export default function StockDetailPage() {
         setMargin(safeParse(MarginTradingListSchema, marginRes.data));
         setBrokers(safeParse(BrokerTradingListSchema, brokerRes.data));
       })
-      .catch(() => setError("載入資料失敗"))
+      .catch(() => {
+        setError("載入資料失敗");
+        toast.error("載入資料失敗");
+      })
       .finally(() => setLoading(false));
-  }, [stockId]);
+  }, [stockId, startDate, endDate]);
 
   if (loading) {
     return <StockDetailSkeleton />;
@@ -117,9 +135,12 @@ export default function StockDetailPage() {
         <CardContent className="py-5">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-2xl font-bold">
-                {stock?.stock_name}
-              </h1>
+              <div className="flex items-center gap-1">
+                <h1 className="text-2xl font-bold">
+                  {stock?.stock_name}
+                </h1>
+                <WatchlistButton stockId={stockId} />
+              </div>
               <p className="text-muted-foreground text-sm mt-0.5">
                 {stock?.stock_id} &middot; {stock?.market_type === "tpex" ? "上櫃" : "上市"}
               </p>
@@ -144,6 +165,13 @@ export default function StockDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Date Range Picker */}
+      <DateRangePicker
+        startDate={startDate}
+        endDate={endDate}
+        onChange={handleDateChange}
+      />
 
       {/* Candlestick Chart - Full width */}
       <Card>
