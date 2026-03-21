@@ -6,8 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text, update
 
+from app.api.alerts import router as alerts_router
 from app.api.backtests import router as backtests_router
+from app.api.notifications import router as notifications_router
 from app.api.stocks import router as stocks_router
+from app.api.watchlist import router as watchlist_router
 from app.auth.router import router as auth_router
 from app.config import settings
 from app.database import AsyncSessionLocal
@@ -58,6 +61,9 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(stocks_router, prefix="/api/v1/stocks", tags=["stocks"])
 app.include_router(backtests_router, prefix="/api/v1/backtests", tags=["backtests"])
+app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["alerts"])
+app.include_router(watchlist_router, prefix="/api/v1/watchlist", tags=["watchlist"])
+app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["notifications"])
 
 
 @app.get("/health")
