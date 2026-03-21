@@ -8,6 +8,11 @@ from app.models.broker_trading import BrokerTrading
 from app.models.user import User
 from app.models.strategy import Strategy
 from app.models.backtest import Backtest, BacktestTrade, BacktestDailyReturn
+from app.models.price_alert import PriceAlert
+from app.models.notification import Notification
+from app.models.watchlist import Watchlist
+from app.models.intraday_minute import IntradayMinute
+from app.models.intraday_tick import IntradayTick
 
 __all__ = [
     "Base",
@@ -22,4 +27,9 @@ __all__ = [
     "Backtest",
     "BacktestTrade",
     "BacktestDailyReturn",
+    "PriceAlert",
+    "Notification",
+    "Watchlist",
+    "IntradayMinute",
+    "IntradayTick",
 ]
