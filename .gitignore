@@ -210,3 +210,4 @@ __marimo__/
 postgres_data/
 redis_data/
 logs/
+backend/test.db
