@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantEdge — 智能股票追蹤系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #FFD000;
+    --teal: #00FFD1;
+    --blue: #4FC3F7;
+    --red: #FF4B6E;
+    --green: #00E5A0;
+    --bg: #060A12;
+    --bg2: #0B1020;
+    --bg3: #111827;
+    --border: rgba(255,255,255,0.07);
+    --border-gold: rgba(255,208,0,0.25);
+    --text: #E8EDF5;
+    --muted: #6B7A99;
+    --serif: 'Noto Serif TC', serif;
+    --sans: 'Noto Sans TC', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    background-size: 256px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1.25rem 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(6, 10, 18, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    color: var(--gold);
+    position: relative;
+  }
+
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background: var(--gold);
+    opacity: 0.15;
+  }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+  }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+    font-family: var(--sans);
+    font-weight: 400;
+  }
+
+  nav a:hover { color: var(--text); }
+
+  .nav-cta {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--gold);
+    color: var(--gold) !important;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    transition: all 0.2s !important;
+    font-family: var(--mono) !important;
+  }
+
+  .nav-cta:hover {
+    background: var(--gold);
+    color: var(--bg) !important;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 7rem 3rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Background decorative elements */
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(ellipse, rgba(255,208,0,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -150px; left: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(ellipse, rgba(0,255,209,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 2rem;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    color: #fff;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--gold);
+    position: relative;
+  }
+
+  h1 em::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--gold), transparent);
+  }
+
+  .hero-desc {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.8;
+    max-width: 480px;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    padding: 0.85rem 2rem;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    opacity: 0.15;
+  }
+
+  .btn-primary:hover::before { transform: translateX(0); }
+
+  .btn-secondary {
+    padding: 0.85rem 2rem;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.25s;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.05);
+  }
+
+  /* ─── LIVE CHART PANEL ─── */
+  .hero-visual {
+    position: relative;
+  }
+
+  .chart-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem;
+  }
+
+  .chart-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--gold), transparent 60%);
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+
+  .chart-ticker {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .chart-price {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .chart-change {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(0, 229, 160, 0.1);
+    color: var(--green);
+    border: 1px solid rgba(0, 229, 160, 0.2);
+  }
+
+  .chart-body {
+    position: relative;
+    height: 140px;
+  }
+
+  canvas#heroChart {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Data rows below chart */
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-top: 1.25rem;
+  }
+
+  .data-cell {
+    background: var(--bg2);
+    padding: 0.75rem 1rem;
+  }
+
+  .data-label {
+    font-size: 0.65rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.25rem;
+  }
+
+  .data-value {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .data-value.up { color: var(--green); }
+  .data-value.down { color: var(--red); }
+
+  /* Floating mini ticker */
+  .ticker-scroll {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(11,16,32,0.9);
+    border-top: 1px solid var(--border);
+    padding: 0.4rem 1rem;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .ticker-inner {
+    display: inline-flex;
+    gap: 3rem;
+    animation: scrollTicker 30s linear infinite;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+  }
+
+  .tick-item { display: flex; gap: 0.5rem; align-items: center; }
+  .tick-sym { color: var(--muted); }
+  .tick-val { color: var(--text); }
+  .tick-chg.pos { color: var(--green); }
+  .tick-chg.neg { color: var(--red); }
+
+  @keyframes scrollTicker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ─── STATS BAR ─── */
+  .stats-bar {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
+    background: var(--bg2);
+  }
+
+  .stats-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--serif);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-num span { color: var(--gold); }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── SECTION LAYOUT ─── */
+  section {
+    position: relative;
+    z-index: 1;
+    padding: 6rem 3rem;
+  }
+
+  .section-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .section-tag {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-tag::before {
+    content: '//';
+    opacity: 0.5;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    font-weight: 900;
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 1rem;
+  }
+
+  .section-sub {
+    color: var(--muted);
+    max-width: 520px;
+    font-size: 0.95rem;
+    margin-bottom: 4rem;
+    line-height: 1.8;
+  }
+
+  /* ─── FEATURES GRID ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .feat-card {
+    background: var(--bg2);
+    padding: 2.5rem 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+
+  .feat-card:hover { background: var(--bg3); }
+
+  .feat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: transparent;
+    transition: background 0.3s;
+  }
+
+  .feat-card:hover::after { background: var(--gold); }
+
+  .feat-icon {
+    width: 48px; height: 48px;
+    border: 1px solid var(--border-gold);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    position: relative;
+  }
+
+  .feat-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gold);
+    opacity: 0.04;
+  }
+
+  .feat-title {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .feat-desc {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .feat-tag {
+    display: inline-flex;
+    margin-top: 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--teal);
+    border: 1px solid rgba(0,255,209,0.2);
+    padding: 0.2rem 0.6rem;
+  }
+
+  /* ─── SIGNAL SECTION (3大法人) ─── */
+  .signal-section {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .signal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 5rem;
+    align-items: center;
+  }
+
+  .institution-table {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .table-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    background: rgba(255,208,0,0.05);
+    border-bottom: 1px solid var(--border-gold);
+    padding: 0.75rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+  }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    align-items: center;
+    transition: background 0.2s;
+  }
+
+  .table-row:hover { background: rgba(255,255,255,0.02); }
+  .table-row:last-child { border-bottom: none; }
+
+  .row-name { color: var(--text); font-weight: 500; }
+  .row-buy { color: var(--green); }
+  .row-sell { color: var(--red); }
+  .row-net { color: var(--blue); font-weight: 600; }
+
+  .mini-bar {
+    height: 3px;
+    background: var(--border);
+    margin-top: 0.3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mini-bar-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: var(--green);
+  }
+
+  /* ─── BACKTESTING SECTION ─── */
+  .backtest-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+
+  .backtest-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .panel-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .panel-dot.red { background: #FF5F56; }
+  .panel-dot.yellow { background: #FEBC2E; }
+  .panel-dot.green { background: #28C840; }
+
+  .panel-title-text {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-left: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .panel-body {
+    padding: 1.5rem;
+  }
+
+  .code-line {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 2;
+    color: var(--muted);
+  }
+
+  .code-line .kw { color: var(--blue); }
+  .code-line .str { color: var(--gold); }
+  .code-line .num { color: var(--teal); }
+  .code-line .fn { color: #B39DDB; }
+  .code-line .cm { color: #3D4A6B; }
+
+  .metrics-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .metric-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .metric-name {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: var(--sans);
+  }
+
+  .metric-val {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .metric-val.pos { color: var(--green); }
+
+  .metric-bar-bg {
+    height: 3px;
+    background: var(--border);
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-bar-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: var(--teal);
+  }
+
+  /* ─── MARGIN TRADING ─── */
+  .margin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+
+  .margin-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+
+  .margin-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255,208,0,0.2);
+  }
+
+  .margin-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, rgba(255,208,0,0.04), transparent 60%);
+    pointer-events: none;
+  }
+
+  .m-num {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+    margin-bottom: 1rem;
+  }
+
+  .m-title {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.75rem;
+  }
+
+  .m-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .m-list {
+    margin-top: 1.25rem;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .m-list li {
+    font-size: 0.78rem;
+    color: var(--muted);
+    padding-left: 1rem;
+    position: relative;
+  }
+
+  .m-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+    opacity: 0.6;
+  }
+
+  /* ─── AUTO TRADING ─── */
+  .auto-section {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .auto-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+  }
+
+  .flow-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    position: relative;
+  }
+
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px; top: 42px;
+    width: 1px;
+    height: calc(100% + 0px);
+    background: linear-gradient(to bottom, var(--border-gold), transparent);
+    bottom: -1rem;
+  }
+
+  .flow-icon {
+    flex-shrink: 0;
+    width: 38px; height: 38px;
+    border: 1px solid var(--border-gold);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    background: rgba(255,208,0,0.05);
+    z-index: 1;
+  }
+
+  .flow-content {
+    padding-bottom: 2.5rem;
+  }
+
+  .flow-title {
+    font-family: var(--sans);
+    font-weight: 500;
+    color: #fff;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .flow-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* ─── CTA ─── */
+  .cta-section {
+    padding: 8rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 800px; height: 400px;
+    background: radial-gradient(ellipse, rgba(255,208,0,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .cta-inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+
+  .cta-inner h2 { margin-bottom: 1rem; }
+
+  .cta-sub {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+    line-height: 1.8;
+  }
+
+  .cta-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  footer p {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+  }
+
+  .footer-links a {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover { color: var(--gold); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-content > * {
+    opacity: 0;
+    animation: fadeInUp 0.7s forwards;
+  }
+
+  .hero-content > *:nth-child(1) { animation-delay: 0.1s; }
+  .hero-content > *:nth-child(2) { animation-delay: 0.2s; }
+  .hero-content > *:nth-child(3) { animation-delay: 0.35s; }
+  .hero-content > *:nth-child(4) { animation-delay: 0.5s; }
+
+  .hero-visual {
+    opacity: 0;
+    animation: fadeInUp 0.8s 0.4s forwards;
+  }
+
+  /* Blinking cursor */
+  .cursor {
+    display: inline-block;
+    width: 8px; height: 1em;
+    background: var(--gold);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Live dot */
+  .live-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--green);
+    letter-spacing: 0.1em;
+  }
+
+  .live-dot::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(0,229,160,0.5);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,229,160,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(0,229,160,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,229,160,0); }
+  }
+
+  /* Scroll reveal */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    nav { padding: 1rem 1.5rem; }
+    nav ul { display: none; }
+    .hero { padding: 6rem 1.5rem 3rem; }
+    .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .stats-inner { grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; }
+    .signal-grid, .backtest-grid, .auto-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .margin-grid { grid-template-columns: 1fr; }
+    section { padding: 4rem 1.5rem; }
+    .cta-section { padding: 5rem 1.5rem; }
+    footer { flex-direction: column; gap: 1rem; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-icon">QE</div>
+    QUANTEDGE
+  </a>
+  <ul>
+    <li><a href="#features">功能</a></li>
+    <li><a href="#signals">籌碼分析</a></li>
+    <li><a href="#backtest">回測系統</a></li>
+    <li><a href="#auto">自動交易</a></li>
+    <li><a href="#" class="nav-cta">免費試用 →</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid">
+    <div class="hero-content">
+      <div class="hero-eyebrow">台灣智能量化交易平台</div>
+      <h1>掌握市場<em>每一個</em><br>關鍵訊號</h1>
+      <p class="hero-desc">
+        整合3大法人籌碼、融資融券、大戶持倉，<br>
+        搭配 AI 回測引擎與自動化交易策略，<br>
+        讓數據驅動你的每一筆決策。
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn-primary">開始使用 →</a>
+        <a href="#backtest" class="btn-secondary">觀看 Demo</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div>
+            <div class="chart-ticker">2330 · 台積電 TSMC</div>
+            <div class="chart-price">$1,045 <span class="chart-change">▲ +2.34%</span></div>
+          </div>
+          <div class="live-dot">LIVE</div>
+        </div>
+        <div class="chart-body">
+          <canvas id="heroChart"></canvas>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell">
+            <div class="data-label">外資買超</div>
+            <div class="data-value up">+12,845 張</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-label">投信買超</div>
+            <div class="data-value up">+2,310 張</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-label">融資餘額</div>
+            <div class="data-value down">▼ -3.2%</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-label">融券餘額</div>
+            <div class="data-value">8,204 張</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-label">大戶持股比</div>
+            <div class="data-value up">76.3%</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-label">信心指數</div>
+            <div class="data-value up">84.2</div>
+          </div>
+        </div>
+        <div class="ticker-scroll">
+          <span class="ticker-inner">
+            <span class="tick-item"><span class="tick-sym">2330</span><span class="tick-val">1,045</span><span class="tick-chg pos">+2.34%</span></span>
+            <span class="tick-item"><span class="tick-sym">2317</span><span class="tick-val">188.5</span><span class="tick-chg pos">+1.78%</span></span>
+            <span class="tick-item"><span class="tick-sym">2454</span><span class="tick-val">1,345</span><span class="tick-chg neg">-0.96%</span></span>
+            <span class="tick-item"><span class="tick-sym">6505</span><span class="tick-val">382.0</span><span class="tick-chg pos">+0.53%</span></span>
+            <span class="tick-item"><span class="tick-sym">2881</span><span class="tick-val">95.8</span><span class="tick-chg neg">-1.22%</span></span>
+            <span class="tick-item"><span class="tick-sym">0050</span><span class="tick-val">198.3</span><span class="tick-chg pos">+0.85%</span></span>
+            <span class="tick-item"><span class="tick-sym">2303</span><span class="tick-val">74.2</span><span class="tick-chg neg">-0.40%</span></span>
+            <span class="tick-item"><span class="tick-sym">2330</span><span class="tick-val">1,045</span><span class="tick-chg pos">+2.34%</span></span>
+            <span class="tick-item"><span class="tick-sym">2317</span><span class="tick-val">188.5</span><span class="tick-chg pos">+1.78%</span></span>
+            <span class="tick-item"><span class="tick-sym">2454</span><span class="tick-val">1,345</span><span class="tick-chg neg">-0.96%</span></span>
+            <span class="tick-item"><span class="tick-sym">6505</span><span class="tick-val">382.0</span><span class="tick-chg pos">+0.53%</span></span>
+            <span class="tick-item"><span class="tick-sym">2881</span><span class="tick-val">95.8</span><span class="tick-chg neg">-1.22%</span></span>
+            <span class="tick-item"><span class="tick-sym">0050</span><span class="tick-val">198.3</span><span class="tick-chg pos">+0.85%</span></span>
+            <span class="tick-item"><span class="tick-sym">2303</span><span class="tick-val">74.2</span><span class="tick-chg neg">-0.40%</span></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="reveal">
+      <div class="stat-num">1,800<span>+</span></div>
+      <div class="stat-label">追蹤台股股票</div>
+    </div>
+    <div class="reveal">
+      <div class="stat-num">98<span>%</span></div>
+      <div class="stat-label">數據準確率</div>
+    </div>
+    <div class="reveal">
+      <div class="stat-num">15<span>ms</span></div>
+      <div class="stat-label">即時訊號延遲</div>
+    </div>
+    <div class="reveal">
+      <div class="stat-num">5<span>年+</span></div>
+      <div class="stat-label">歷史回測資料</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-tag">核心功能</div>
+    <h2>全方位的市場情報<br>盡在掌握</h2>
+    <p class="section-sub">從籌碼面到技術面，從基本面到法人動向，QuantEdge 將所有關鍵數據整合至單一平台。</p>
+    <div class="features-grid reveal">
+      <div class="feat-card">
+        <div class="feat-icon">📊</div>
+        <div class="feat-title">個股日報追蹤</div>
+        <div class="feat-desc">每日自動彙整每檔個股的成交量、K線型態、突破訊號與籌碼異動，一覽無遺。</div>
+        <div class="feat-tag">DAILY REPORT</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🏛</div>
+        <div class="feat-title">3大法人動向</div>
+        <div class="feat-desc">即時監控外資、投信、自營商的買賣超動態，掌握法人資金流向與主力佈局策略。</div>
+        <div class="feat-tag">INSTITUTIONAL</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🧩</div>
+        <div class="feat-title">籌碼集中分析</div>
+        <div class="feat-desc">追蹤券商分點進出、大戶持股比例與集中度變化，提早洞察主力動向。</div>
+        <div class="feat-tag">CHIP ANALYSIS</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">💹</div>
+        <div class="feat-title">融資融券監控</div>
+        <div class="feat-desc">即時掌握融資餘額、融券餘額及資券比變化，識別市場多空情緒轉折點。</div>
+        <div class="feat-tag">MARGIN TRADING</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⚡</div>
+        <div class="feat-title">自動化交易引擎</div>
+        <div class="feat-desc">透過策略模板或自訂條件觸發自動下單，支援多種技術指標與法人訊號組合策略。</div>
+        <div class="feat-tag">AUTO TRADING</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔁</div>
+        <div class="feat-title">歷史回測系統</div>
+        <div class="feat-desc">以最長5年歷史數據驗證任意策略，輸出勝率、最大回撤、Sharpe Ratio等完整績效報告。</div>
+        <div class="feat-tag">BACKTESTING</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIGNAL / 3大法人 -->
+<section class="signal-section" id="signals">
+  <div class="section-inner">
+    <div class="signal-grid">
+      <div class="reveal">
+        <div class="section-tag">法人籌碼</div>
+        <h2>三大法人<br>買賣超即時監控</h2>
+        <p class="section-sub" style="margin-bottom:2rem;">
+          外資的大量買進往往是行情啟動的先行指標，投信護盤效應影響類股短線走勢。QuantEdge 每日收盤後5分鐘內完成數據更新。
+        </p>
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div style="width:8px;height:8px;background:var(--green);"></div>
+            <span style="font-size:0.82rem;color:var(--muted);">法人連續買超 → 多頭趨勢確認訊號</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div style="width:8px;height:8px;background:var(--red);"></div>
+            <span style="font-size:0.82rem;color:var(--muted);">外資大量賣超 → 風險提示自動警報</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div style="width:8px;height:8px;background:var(--blue);"></div>
+            <span style="font-size:0.82rem;color:var(--muted);">投信買超 + 外資同步 → 強力買進訊號</span>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="institution-table">
+          <div class="table-head">
+            <span>法人</span>
+            <span>買進（億）</span>
+            <span>賣出（億）</span>
+            <span>買超（億）</span>
+          </div>
+          <div class="table-row">
+            <span class="row-name">外資</span>
+            <span class="row-buy">2,841</span>
+            <span class="row-sell">2,695</span>
+            <span class="row-net">+146.2</span>
+          </div>
+          <div class="table-row">
+            <span class="row-name">投信</span>
+            <span class="row-buy">384</span>
+            <span class="row-sell">325</span>
+            <span class="row-net">+59.1</span>
+          </div>
+          <div class="table-row">
+            <span class="row-name">自營商</span>
+            <span class="row-buy">621</span>
+            <span class="row-sell">658</span>
+            <span class="row-net" style="color:var(--red)">-37.4</span>
+          </div>
+          <div class="table-row">
+            <span class="row-name" style="color:var(--gold)">合計</span>
+            <span class="row-buy" style="color:var(--text)">3,846</span>
+            <span class="row-sell" style="color:var(--text)">3,678</span>
+            <span class="row-net" style="color:var(--green)">+167.9</span>
+          </div>
+        </div>
+        <div style="margin-top:1rem;padding:1rem 1.25rem;background:var(--bg);border:1px solid var(--border);border-top:none;">
+          <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);letter-spacing:0.1em;margin-bottom:0.75rem;">今日大戶買超 TOP 3</div>
+          <div style="display:flex;flex-direction:column;gap:0.6rem;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.75rem;margin-bottom:0.2rem;">
+                <span style="color:var(--text)">2330 台積電</span><span style="color:var(--green)">+22,841</span>
+              </div>
+              <div class="mini-bar"><div class="mini-bar-fill" style="width:88%"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.75rem;margin-bottom:0.2rem;">
+                <span style="color:var(--text)">2317 鴻海</span><span style="color:var(--green)">+15,203</span>
+              </div>
+              <div class="mini-bar"><div class="mini-bar-fill" style="width:62%"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.75rem;margin-bottom:0.2rem;">
+                <span style="color:var(--text)">2454 聯發科</span><span style="color:var(--green)">+8,940</span>
+              </div>
+              <div class="mini-bar"><div class="mini-bar-fill" style="width:43%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BACKTESTING -->
+<section id="backtest">
+  <div class="section-inner">
+    <div class="section-tag">策略驗證</div>
+    <h2>回測引擎<br>讓數據說話</h2>
+    <p class="section-sub">在真實資金入場前，用歷史數據驗證你的每一個假設。支援客製化策略、參數最佳化與 Walk-Forward 分析。</p>
+    <div class="backtest-grid">
+      <div class="reveal">
+        <div class="backtest-panel">
+          <div class="panel-bar">
+            <div class="panel-dot red"></div>
+            <div class="panel-dot yellow"></div>
+            <div class="panel-dot green"></div>
+            <span class="panel-title-text">strategy_backtest.py</span>
+          </div>
+          <div class="panel-body">
+            <div class="code-line"><span class="cm"># 定義多空訊號策略</span></div>
+            <div class="code-line"><span class="kw">strategy</span> = Strategy(</div>
+            <div class="code-line">&nbsp;&nbsp;name=<span class="str">"法人籌碼跟蹤"</span>,</div>
+            <div class="code-line">&nbsp;&nbsp;universe=<span class="str">"TWSE_TOP200"</span>,</div>
+            <div class="code-line">&nbsp;&nbsp;start=<span class="str">"2020-01-01"</span>,</div>
+            <div class="code-line">&nbsp;&nbsp;end=<span class="str">"2025-03-15"</span>,</div>
+            <div class="code-line">)</div>
+            <div class="code-line">&nbsp;</div>
+            <div class="code-line"><span class="kw">strategy</span>.<span class="fn">add_signal</span>(</div>
+            <div class="code-line">&nbsp;&nbsp;InstitutionalBuy(days=<span class="num">3</span>, threshold=<span class="num">5000</span>),</div>
+            <div class="code-line">&nbsp;&nbsp;MarginRatio(below=<span class="num">0.3</span>),</div>
+            <div class="code-line">&nbsp;&nbsp;BigPlayerAccumulation(pct=<span class="num">0.7</span>),</div>
+            <div class="code-line">)</div>
+            <div class="code-line">&nbsp;</div>
+            <div class="code-line">result = <span class="kw">strategy</span>.<span class="fn">run</span>()</div>
+            <div class="code-line"><span class="fn">print</span>(result.<span class="fn">summary</span>())</div>
+            <div class="code-line">&nbsp;</div>
+            <div class="code-line"><span class="cm">>>> 回測完成 · 共 1,842 個交易日</span></div>
+            <div class="code-line"><span class="cm">>>> 觸發訊號 384 次 · 勝率 72.4%</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal" style="display:flex;flex-direction:column;gap:0.5rem;">
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--gold);letter-spacing:0.2em;margin-bottom:1rem;">績效指標</div>
+        <div class="metrics-list">
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">年化報酬率</span>
+              <span class="metric-val pos">+34.8%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:70%;background:var(--green)"></div></div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">策略勝率</span>
+              <span class="metric-val pos">72.4%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:72%;background:var(--teal)"></div></div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">Sharpe Ratio</span>
+              <span class="metric-val pos">2.14</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:85%;background:var(--blue)"></div></div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">最大回撤</span>
+              <span class="metric-val" style="color:var(--red)">-12.3%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:24%;background:var(--red)"></div></div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">平均持有天數</span>
+              <span class="metric-val">8.4 天</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:42%;background:var(--gold)"></div></div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-top">
+              <span class="metric-name">Calmar Ratio</span>
+              <span class="metric-val pos">2.83</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:56%;background:var(--teal)"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;padding:1rem 1.25rem;border:1px solid var(--border-gold);background:rgba(255,208,0,0.03);">
+          <div style="font-family:var(--mono);font-size:0.7rem;color:var(--gold);margin-bottom:0.5rem;">VS 大盤 (同期)</div>
+          <div style="display:flex;gap:2rem;">
+            <div>
+              <div style="font-family:var(--mono);font-size:1.1rem;font-weight:600;color:var(--green)">+34.8%</div>
+              <div style="font-size:0.72rem;color:var(--muted)">策略報酬</div>
+            </div>
+            <div>
+              <div style="font-family:var(--mono);font-size:1.1rem;font-weight:600;color:var(--muted)">+12.1%</div>
+              <div style="font-size:0.72rem;color:var(--muted)">加權指數</div>
+            </div>
+            <div>
+              <div style="font-family:var(--mono);font-size:1.1rem;font-weight:600;color:var(--gold)">+22.7%</div>
+              <div style="font-size:0.72rem;color:var(--muted)">超額報酬 α</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARGIN SECTION -->
+<section id="margin" style="background:var(--bg);">
+  <div class="section-inner">
+    <div class="section-tag">融資融券</div>
+    <h2>多空籌碼<br>一眼洞察</h2>
+    <p class="section-sub">融資增加代表散戶看多，融券增加代表放空力道加重。QuantEdge 即時計算資券比，協助你識別市場情緒反轉時機。</p>
+    <div class="margin-grid">
+      <div class="margin-card reveal">
+        <div class="m-num">01 —</div>
+        <div class="m-title">融資餘額追蹤</div>
+        <div class="m-desc">即時監控各個股融資餘額增減，計算融資集中度與槓桿風險。</div>
+        <ul class="m-list">
+          <li>日增減張數與金額</li>
+          <li>連續增減日數標記</li>
+          <li>融資使用率警示</li>
+        </ul>
+      </div>
+      <div class="margin-card reveal">
+        <div class="m-num">02 —</div>
+        <div class="m-title">融券空單分析</div>
+        <div class="m-desc">掌握融券餘額、空單集中度及軋空潛力指標，提早卡位強軋空標的。</div>
+        <ul class="m-list">
+          <li>券/資比即時計算</li>
+          <li>軋空評分（10分制）</li>
+          <li>停券還券異動警報</li>
+        </ul>
+      </div>
+      <div class="margin-card reveal">
+        <div class="m-num">03 —</div>
+        <div class="m-title">大戶持股動向</div>
+        <div class="m-desc">追蹤 400 張以上大戶持股比例變化，識別籌碼集中度提升的潛力標的。</div>
+        <ul class="m-list">
+          <li>各持股層級分布圖</li>
+          <li>大戶買進/出脫訊號</li>
+          <li>籌碼集中度排行</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTO TRADING -->
+<section class="auto-section" id="auto">
+  <div class="section-inner">
+    <div class="auto-grid">
+      <div class="reveal">
+        <div class="section-tag">自動交易</div>
+        <h2>策略設定一次<br>系統全自動執行</h2>
+        <p class="section-sub">透過視覺化條件編輯器設定進出場規則，無需寫程式。支援 API 串接永豐金、富邦、玉山等主流券商。</p>
+        <a href="#" class="btn-primary" style="display:inline-flex;">了解更多 →</a>
+      </div>
+      <div class="flow-diagram reveal">
+        <div class="flow-step">
+          <div class="flow-icon">🔍</div>
+          <div class="flow-content">
+            <div class="flow-title">訊號偵測</div>
+            <div class="flow-desc">系統持續掃描全市場，當籌碼條件符合策略設定時，立即觸發警示。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-icon">🔎</div>
+          <div class="flow-content">
+            <div class="flow-title">條件驗證</div>
+            <div class="flow-desc">交叉比對技術面、籌碼面、法人動向等多重條件，確保訊號品質。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-icon">⚖️</div>
+          <div class="flow-content">
+            <div class="flow-title">倉位計算</div>
+            <div class="flow-desc">根據帳戶餘額與風險參數自動計算最佳下單量，落實資金管理紀律。</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-icon">✅</div>
+          <div class="flow-content" style="padding-bottom:0;">
+            <div class="flow-title">自動下單</div>
+            <div class="flow-desc">透過券商 API 即時送出委託，並持續監控停損停利條件。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-inner">
+    <div class="section-tag" style="justify-content:center;">開始使用</div>
+    <h2>數據即是優勢<br><em>現在就掌握它</em></h2>
+    <p class="cta-sub">立即免費試用 QuantEdge，體驗 14 天完整功能。<br>無需信用卡，隨時可以取消。</p>
+    <div class="cta-actions">
+      <a href="#" class="btn-primary">免費開始試用 →</a>
+      <a href="#" class="btn-secondary">預約 Demo 展示</a>
+    </div>
+    <div style="margin-top:2rem;font-family:var(--mono);font-size:0.7rem;color:var(--muted);letter-spacing:0.05em;">
+      已有 2,400+ 投資人使用 · 台灣本地資料 · 每日自動更新
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2025 QuantEdge · 台灣智能量化交易平台</p>
+  <ul class="footer-links">
+    <li><a href="#">功能介紹</a></li>
+    <li><a href="#">定價方案</a></li>
+    <li><a href="#">API 文件</a></li>
+    <li><a href="#">聯絡我們</a></li>
+  </ul>
+</footer>
+
+<script>
+(function() {
+  // ─── HERO CHART ───
+  const canvas = document.getElementById('heroChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+
+  function generatePrice(n, start, vol) {
+    const prices = [start];
+    for (let i = 1; i < n; i++) {
+      const change = (Math.random() - 0.45) * vol;
+      prices.push(Math.max(prices[i - 1] + change, start * 0.85));
+    }
+    return prices;
+  }
+
+  const N = 80;
+  let prices = generatePrice(N, 980, 8);
+  // Ensure uptrend at end
+  for (let i = 60; i < N; i++) {
+    prices[i] = prices[i - 1] + Math.abs((Math.random() - 0.35) * 6);
+  }
+
+  function drawChart() {
+    if (!canvas.width) return;
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const min = Math.min(...prices) - 10;
+    const max = Math.max(...prices) + 10;
+    const range = max - min;
+
+    const points = prices.map((p, i) => ({
+      x: (i / (N - 1)) * w,
+      y: h - ((p - min) / range) * h * 0.85 - h * 0.075
+    }));
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(0,229,160,0.15)');
+    grad.addColorStop(1, 'rgba(0,229,160,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const xc = (points[i - 1].x + points[i].x) / 2;
+      const yc = (points[i - 1].y + points[i].y) / 2;
+      ctx.quadraticCurveTo(points[i - 1].x, points[i - 1].y, xc, yc);
+    }
+    ctx.lineTo(points[N - 1].x, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const xc = (points[i - 1].x + points[i].x) / 2;
+      const yc = (points[i - 1].y + points[i].y) / 2;
+      ctx.quadraticCurveTo(points[i - 1].x, points[i - 1].y, xc, yc);
+    }
+    ctx.strokeStyle = '#00E5A0';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Last dot
+    const last = points[N - 1];
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#00E5A0';
+    ctx.fill();
+
+    // Pulse ring
+    const t = Date.now() / 1000;
+    const r = 4 + (Math.sin(t * 3) * 0.5 + 0.5) * 8;
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,229,160,' + (0.3 - r / 50) + ')';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Grid lines
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach(frac => {
+      const y = h * frac;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  let animFrame;
+  function loop() {
+    drawChart();
+    animFrame = requestAnimationFrame(loop);
+  }
+
+  const ro = new ResizeObserver(() => { resize(); });
+  ro.observe(canvas.parentElement);
+  resize();
+  loop();
+
+  // Simulate live price updates
+  setInterval(() => {
+    const last = prices[prices.length - 1];
+    const newPrice = last + (Math.random() - 0.45) * 5;
+    prices.push(newPrice);
+    if (prices.length > N) prices.shift();
+  }, 800);
+
+  // ─── SCROLL REVEAL ───
+  const reveals = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => obs.observe(el));
+})();
+</script>
+</body>
+</html>
