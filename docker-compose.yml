@@ -38,6 +38,8 @@ services:
       - redis
     env_file:
       - .env
+    security_opt:
+      - seccomp:unconfined
     environment:
       - SCRAPY_PROJECT_DIR=/scrapy_project
       - DATABASE_URL_SYNC=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
