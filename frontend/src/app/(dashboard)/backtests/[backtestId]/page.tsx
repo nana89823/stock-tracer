@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Target, BarChart3, Award, Repeat, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, BarChart3, Award, Repeat, RefreshCw, Download } from "lucide-react";
 import EquityCurveChart from "@/components/charts/EquityCurveChart";
 import BacktestDetailSkeleton from "@/components/skeletons/BacktestDetailSkeleton";
 import type { Backtest, Strategy } from "@/types";
@@ -129,6 +129,28 @@ export default function BacktestDetailPage() {
   const isPendingOrRunning =
     backtest.status === "pending" || backtest.status === "running";
 
+  const handleExportCsv = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/backtests/${backtestId}/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("匯出失敗");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backtest_${backtestId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("CSV 匯出成功");
+    } catch {
+      toast.error("CSV 匯出失敗");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -145,6 +167,12 @@ export default function BacktestDetailPage() {
               <span className="font-mono">{backtest.stock_id}</span>
             </p>
           </div>
+          {backtest.status === "completed" && (
+            <Button variant="outline" className="gap-2" onClick={handleExportCsv}>
+              <Download className="h-4 w-4" />
+              匯出 CSV
+            </Button>
+          )}
         </div>
         <div className="flex gap-6 mt-4 text-sm text-muted-foreground">
           <span>期間: {backtest.start_date} ~ {backtest.end_date}</span>
