@@ -212,6 +212,21 @@ class DatabasePipeline:
                 by_table.setdefault(table.name, (table, []))
                 by_table[table.name][1].append(data)
 
+            # For tables with FK to stocks, filter out unknown stock_ids
+            valid_stock_ids = None
+            for table_name, (table, rows) in by_table.items():
+                if table_name in ("major_holders",) and rows:
+                    if valid_stock_ids is None:
+                        result = session.execute(
+                            stocks_table.select().with_only_columns(stocks_table.c.stock_id)
+                        )
+                        valid_stock_ids = {r[0] for r in result}
+                    before = len(rows)
+                    rows[:] = [r for r in rows if r.get("stock_id") in valid_stock_ids]
+                    skipped = before - len(rows)
+                    if skipped:
+                        spider.logger.debug(f"Skipped {skipped} items with unknown stock_id")
+
             for table_name, (table, rows) in by_table.items():
                 pk_cols = [c.name for c in table.primary_key.columns]
                 non_pk_cols = [c.name for c in table.columns if c.name not in pk_cols]
