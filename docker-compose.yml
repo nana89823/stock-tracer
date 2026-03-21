@@ -29,9 +29,36 @@ services:
     volumes:
       - ./backend:/app
 
-  celery-worker:
+  celery-worker-crawl:
     build: ./backend
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A app.celery_app worker --concurrency=4 -Q crawl --loglevel=info -n crawl@%h
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      - SCRAPY_PROJECT_DIR=/scrapy_project
+      - DATABASE_URL_SYNC=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    volumes:
+      - ./backend:/app
+      - ./stock_tracer:/scrapy_project/stock_tracer
+      - ./scrapy.cfg:/scrapy_project/scrapy.cfg
+
+  celery-worker-backtest:
+    build: ./backend
+    command: celery -A app.celery_app worker --concurrency=2 -Q backtest --loglevel=info -n backtest@%h
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+
+  celery-beat:
+    build: ./backend
+    command: celery -A app.celery_app beat --loglevel=info
     depends_on:
       - db
       - redis
