@@ -14,8 +14,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # ports removed: containers connect via internal network, avoids host port conflicts
 
   backend:
     build: ./backend
