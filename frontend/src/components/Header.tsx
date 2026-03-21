@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { LogOut, Menu, Sun, Moon } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 function getPageTitle(pathname: string): string {
   if (pathname === "/home") return "市場總覽";
@@ -51,6 +52,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       {/* User section */}
       {user && (
         <div className="flex items-center gap-2 md:gap-3">
+          <NotificationBell />
           <Button
             variant="ghost"
             size="sm"
