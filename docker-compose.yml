@@ -25,6 +25,8 @@ services:
       - redis
     env_file:
       - .env
+    security_opt:
+      - seccomp:unconfined
     volumes:
       - ./backend:/app
 
