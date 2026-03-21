@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import api from "@/lib/api";
 import { safeParse, BacktestSchema, StrategyListSchema } from "@/lib/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -14,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Target, BarChart3, Award, Repeat } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, BarChart3, Award, Repeat, RefreshCw } from "lucide-react";
 import EquityCurveChart from "@/components/charts/EquityCurveChart";
 import BacktestDetailSkeleton from "@/components/skeletons/BacktestDetailSkeleton";
 import type { Backtest, Strategy } from "@/types";
@@ -156,9 +157,25 @@ export default function BacktestDetailPage() {
         <Card>
           <CardContent className="py-20">
             {pollCount >= MAX_POLL_COUNT ? (
-              <p className="text-amber-600 text-center">
-                回測執行時間過長，請稍後手動重新整理
-              </p>
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-amber-600 text-center">
+                  回測執行時間較長，系統仍在處理中
+                </p>
+                <p className="text-sm text-muted-foreground text-center">
+                  請稍後重新整理頁面查看最新狀態
+                </p>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    setPollCount(0);
+                    fetchBacktest();
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  重新整理
+                </Button>
+              </div>
             ) : (
               <p className="text-muted-foreground text-center">
                 回測{backtest.status === "pending" ? "等待執行" : "執行"}中，請稍候...
