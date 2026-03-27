@@ -91,6 +91,15 @@ export interface Strategy {
   params: Record<string, unknown> | null;
 }
 
+export interface RiskParams {
+  stop_loss_pct: number | null;
+  take_profit_pct: number | null;
+  trailing_stop_pct: number | null;
+  position_size_pct: number;
+  allow_scale_in: boolean;
+  max_scale_in_times: number;
+}
+
 export interface BacktestTrade {
   id: number;
   trade_date: string;
@@ -101,6 +110,7 @@ export interface BacktestTrade {
   commission: number;
   tax: number;
   realized_pnl: number | null;
+  reason?: string | null;
 }
 
 export interface BacktestDailyReturn {
@@ -109,6 +119,7 @@ export interface BacktestDailyReturn {
   cash: number;
   total_equity: number;
   daily_return: number | null;
+  stock_id?: string | null;
 }
 
 export interface BacktestResult {
@@ -123,10 +134,15 @@ export interface BacktestResult {
   final_equity: number;
 }
 
+export interface PerStockResult {
+  stock_id: string;
+  metrics: BacktestResult;
+}
+
 export interface Backtest {
   id: number;
   strategy_id: number;
-  stock_id: string;
+  stock_id: string | null;
   start_date: string;
   end_date: string;
   initial_capital: number;
@@ -135,6 +151,10 @@ export interface Backtest {
   result: BacktestResult | null;
   created_at: string;
   completed_at: string | null;
+  mode?: "single" | "batch" | "portfolio";
+  stock_ids?: string[] | null;
+  risk_params?: RiskParams | null;
+  per_stock_results?: PerStockResult[] | null;
   trades?: BacktestTrade[];
   daily_returns?: BacktestDailyReturn[];
 }
