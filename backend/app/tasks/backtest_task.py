@@ -2,12 +2,14 @@ import asyncio
 import logging
 
 from celery.exceptions import SoftTimeLimitExceeded
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.celery_app import celery
 from app.config import settings
 from app.engine.backtest_runner import BacktestRunner
+from app.engine.batch_runner import BatchRunner
+from app.engine.portfolio_runner import PortfolioRunner
 from app.database import AsyncSessionLocal
 from app.models.backtest import Backtest
 
@@ -19,9 +21,22 @@ SyncSessionLocal = sessionmaker(_sync_engine, expire_on_commit=False)
 
 
 async def _run_backtest_async(backtest_id: int) -> None:
-    """Run backtest using the existing async BacktestRunner."""
+    """Run backtest using the appropriate runner based on mode."""
     async with AsyncSessionLocal() as session:
-        runner = BacktestRunner(session)
+        # Load backtest to determine mode
+        result = await session.execute(
+            select(Backtest).where(Backtest.id == backtest_id)
+        )
+        backtest = result.scalar_one()
+        mode = backtest.mode or "single"
+
+        if mode == "batch":
+            runner = BatchRunner(session)
+        elif mode == "portfolio":
+            runner = PortfolioRunner(session)
+        else:
+            runner = BacktestRunner(session)
+
         await runner.run(backtest_id)
 
 

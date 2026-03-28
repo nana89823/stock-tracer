@@ -11,11 +11,12 @@ from sqlalchemy.orm import selectinload
 from app.auth.security import get_current_user
 from app.database import get_db
 from app.engine.strategies import BUILTIN_STRATEGIES
-from app.models.backtest import Backtest
+from app.models.backtest import Backtest, BacktestDailyReturn
 from app.models.strategy import Strategy
 from app.models.user import User
 from app.schemas.backtest import (
     BacktestCreate,
+    BacktestDailyReturnResponse,
     BacktestListResponse,
     BacktestResponse,
     StrategyCreate,
@@ -119,12 +120,15 @@ async def create_backtest(
 
     backtest = Backtest(
         strategy_id=payload.strategy_id,
-        stock_id=payload.stock_id,
+        stock_id=payload.stock_id if payload.mode == "single" else None,
         start_date=payload.start_date,
         end_date=payload.end_date,
         initial_capital=payload.initial_capital,
         status="pending",
         created_by=current_user.id,
+        mode=payload.mode,
+        stock_ids=payload.stock_ids if payload.mode != "single" else None,
+        risk_params=payload.risk_params,
     )
     db.add(backtest)
     await db.commit()
@@ -174,7 +178,30 @@ async def get_backtest(
     backtest = result.scalar_one_or_none()
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
-    return backtest
+
+    # Build the base response data
+    resp = BacktestResponse.model_validate(backtest)
+
+    # For batch mode: extract per_stock_results from the JSONB result field
+    if backtest.mode == "batch" and backtest.result:
+        resp.per_stock_results = backtest.result.get("per_stock_results")
+
+    # For portfolio mode: separate portfolio-level and per-stock daily returns
+    if backtest.mode == "portfolio":
+        portfolio_returns = []
+        per_stock_returns: dict[str, list[BacktestDailyReturnResponse]] = {}
+
+        for dr in backtest.daily_returns:
+            dr_resp = BacktestDailyReturnResponse.model_validate(dr)
+            if dr.stock_id is None:
+                portfolio_returns.append(dr_resp)
+            else:
+                per_stock_returns.setdefault(dr.stock_id, []).append(dr_resp)
+
+        resp.portfolio_daily_returns = portfolio_returns
+        resp.per_stock_daily_returns = per_stock_returns if per_stock_returns else None
+
+    return resp
 
 
 @router.get("/{backtest_id}/export")
@@ -194,7 +221,7 @@ async def export_backtest_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "action", "stock_id", "price", "shares", "commission", "tax", "pnl"])
+    writer.writerow(["date", "action", "stock_id", "price", "shares", "commission", "tax", "pnl", "reason"])
 
     for trade in sorted(backtest.trades, key=lambda t: t.trade_date):
         writer.writerow([
@@ -206,6 +233,7 @@ async def export_backtest_csv(
             trade.commission,
             trade.tax,
             trade.realized_pnl if trade.realized_pnl is not None else "",
+            trade.reason,
         ])
 
     output.seek(0)
