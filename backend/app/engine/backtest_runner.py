@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.engine.base_strategy import BaseStrategy, MarketData, SignalType
+from app.engine.position_manager import PositionManager
+from app.engine.risk_controller import RiskController
 from app.engine.strategies import BUILTIN_STRATEGIES
 from app.models.backtest import Backtest, BacktestDailyReturn, BacktestTrade
 from app.models.major_holders import MajorHolders
@@ -12,6 +14,15 @@ from app.models.margin_trading import MarginTrading
 from app.models.raw_chip import RawChip
 from app.models.raw_price import RawPrice
 from app.models.strategy import Strategy
+
+DEFAULT_RISK_PARAMS = {
+    "stop_loss_pct": None,
+    "take_profit_pct": None,
+    "trailing_stop_pct": None,
+    "position_size_pct": 100.0,
+    "allow_scale_in": False,
+    "max_scale_in_times": 0,
+}
 
 
 class BacktestRunner:
@@ -38,27 +49,16 @@ class BacktestRunner:
             # 2. Load strategy
             strategy = await self._load_strategy(backtest.strategy_id)
 
-            # 3. Load market data
-            market_data = await self._load_market_data(
-                backtest.stock_id, backtest.start_date, backtest.end_date
-            )
+            # 3. Run single stock simulation
+            run_result = await self.run_single(backtest.stock_id, backtest, strategy)
 
-            # 4. Run simulation
-            run_result = self._simulate(
-                strategy=strategy,
-                stock_id=backtest.stock_id,
-                market_data=market_data,
-                initial_capital=backtest.initial_capital,
-                backtest_id=backtest.id,
-            )
-
-            # 5. Save trades and daily returns
+            # 4. Save trades and daily returns
             for trade in run_result["trades"]:
                 self.db.add(trade)
             for dr in run_result["daily_returns"]:
                 self.db.add(dr)
 
-            # 6. Update backtest record
+            # 5. Update backtest record
             backtest.status = "completed"
             backtest.result = run_result["metrics"]
             backtest.completed_at = datetime.utcnow()
@@ -72,6 +72,40 @@ class BacktestRunner:
             backtest.completed_at = datetime.utcnow()
             await self.db.commit()
             raise
+
+    async def run_single(
+        self, stock_id: str, backtest: Backtest, strategy: BaseStrategy | None = None
+    ) -> dict:
+        """Run backtest for a single stock.
+
+        Loads market data, runs simulation, returns trades/daily_returns/metrics.
+        Designed for reuse by BatchRunner and PortfolioRunner.
+
+        Args:
+            stock_id: Stock to simulate.
+            backtest: Backtest record (provides dates, capital, risk_params, id).
+            strategy: Pre-loaded strategy. If None, loads from backtest.strategy_id.
+
+        Returns:
+            Dict with keys: trades, daily_returns, metrics.
+        """
+        if strategy is None:
+            strategy = await self._load_strategy(backtest.strategy_id)
+
+        market_data = await self._load_market_data(
+            stock_id, backtest.start_date, backtest.end_date
+        )
+
+        run_result = self._simulate(
+            strategy=strategy,
+            stock_id=stock_id,
+            market_data=market_data,
+            initial_capital=backtest.initial_capital,
+            backtest_id=backtest.id,
+            backtest=backtest,
+        )
+
+        return run_result
 
     async def _load_strategy(self, strategy_id: int) -> BaseStrategy:
         result = await self.db.execute(
@@ -167,6 +201,11 @@ class BacktestRunner:
 
         return MarketData(prices=prices, chips=chips, holders=holders, margin=margin)
 
+    def _parse_risk_params(self, backtest: Backtest) -> dict:
+        """Merge backtest.risk_params with defaults for backward compatibility."""
+        params = backtest.risk_params or {}
+        return {**DEFAULT_RISK_PARAMS, **params}
+
     def _simulate(
         self,
         strategy: BaseStrategy,
@@ -174,10 +213,31 @@ class BacktestRunner:
         market_data: MarketData,
         initial_capital: float,
         backtest_id: int,
+        backtest: Backtest,
     ) -> dict:
-        cash = initial_capital
-        holdings: dict[str, int] = {}  # stock_id -> quantity
-        avg_cost: dict[str, float] = {}  # stock_id -> average cost per share
+        # Parse risk parameters (defaults when None -> backward compatible)
+        risk_params = self._parse_risk_params(backtest)
+
+        # Create PositionManager
+        position_manager = PositionManager(
+            initial_capital=initial_capital,
+            position_size_pct=risk_params["position_size_pct"],
+            max_scale_in=risk_params["max_scale_in_times"],
+            commission_rate=self.COMMISSION_RATE,
+            tax_rate=self.TAX_RATE,
+            lot_size=self.LOT_SIZE,
+        )
+
+        # Create RiskController
+        risk_controller = RiskController(
+            stop_loss_pct=risk_params["stop_loss_pct"],
+            take_profit_pct=risk_params["take_profit_pct"],
+            trailing_stop_pct=risk_params["trailing_stop_pct"],
+        )
+
+        allow_scale_in = risk_params["allow_scale_in"]
+        max_scale_in = risk_params["max_scale_in_times"]
+
         trades: list[BacktestTrade] = []
         daily_returns: list[BacktestDailyReturn] = []
         prev_equity = initial_capital
@@ -188,15 +248,7 @@ class BacktestRunner:
             if p["date"] >= market_data.prices[0]["date"]
         ))
 
-        # Find start_date index: we need the first date that appears in our price data
-        # and is within the backtest range
-        start_idx = None
-        for i, d in enumerate(trading_dates):
-            # Find first date in the trading range where strategy can operate
-            if start_idx is None:
-                start_idx = i
-
-        if start_idx is None:
+        if not trading_dates:
             return {"trades": [], "daily_returns": [], "metrics": {}}
 
         for current_date in trading_dates:
@@ -210,82 +262,81 @@ class BacktestRunner:
             if close_price is None:
                 continue
 
-            # Get signal from strategy (only data up to current_date is visible)
-            signal = strategy.on_data(current_date, market_data)
+            # 1. Update position tracking (for trailing stop)
+            position_manager.update_high(close_price)
 
-            current_holding = holdings.get(stock_id, 0)
+            # 2. Risk check (overrides strategy)
+            risk_signal = risk_controller.check(close_price, position_manager)
 
-            if signal.signal_type == SignalType.BUY:
-                quantity = (signal.quantity // self.LOT_SIZE) * self.LOT_SIZE
-                if quantity <= 0:
-                    quantity = self.LOT_SIZE
-
-                cost = quantity * close_price
-                commission = cost * self.COMMISSION_RATE
-
-                if cash >= cost + commission:
-                    cash -= cost + commission
-                    prev_holding = holdings.get(stock_id, 0)
-                    prev_cost = avg_cost.get(stock_id, 0.0)
-                    new_holding = prev_holding + quantity
-                    avg_cost[stock_id] = (
-                        (prev_cost * prev_holding + cost) / new_holding
-                        if new_holding > 0 else 0.0
-                    )
-                    holdings[stock_id] = new_holding
-
+            if risk_signal and position_manager.holding_quantity > 0:
+                # Risk-triggered sell: sell all holdings
+                trade_dict = position_manager.sell(close_price, current_date)
+                if trade_dict:
                     trades.append(BacktestTrade(
                         backtest_id=backtest_id,
-                        trade_date=current_date,
+                        trade_date=trade_dict["date"],
                         stock_id=stock_id,
-                        direction="buy",
-                        price=close_price,
-                        quantity=quantity,
-                        commission=commission,
-                        tax=0.0,
-                        realized_pnl=None,
+                        direction=trade_dict["direction"],
+                        price=trade_dict["price"],
+                        quantity=trade_dict["quantity"],
+                        commission=trade_dict["commission"],
+                        tax=trade_dict["tax"],
+                        realized_pnl=trade_dict["realized_pnl"],
+                        reason=risk_signal.reason,
                     ))
+            else:
+                # 3. Strategy signal
+                signal = strategy.on_data(current_date, market_data)
 
-            elif signal.signal_type == SignalType.SELL and current_holding > 0:
-                quantity = min(
-                    (signal.quantity // self.LOT_SIZE) * self.LOT_SIZE,
-                    current_holding,
-                )
-                if quantity <= 0:
-                    quantity = min(self.LOT_SIZE, current_holding)
+                if signal.signal_type == SignalType.BUY:
+                    # Check if we can buy: either no holdings or scale-in allowed
+                    can_buy = False
+                    if position_manager.holding_quantity == 0:
+                        can_buy = True
+                    elif allow_scale_in and position_manager.scale_in_count < max_scale_in:
+                        can_buy = True
 
-                proceeds = quantity * close_price
-                commission = proceeds * self.COMMISSION_RATE
-                tax = proceeds * self.TAX_RATE
+                    if can_buy:
+                        # Let PositionManager auto-size based on position_size_pct
+                        trade_dict = position_manager.buy(
+                            close_price, current_date,
+                        )
+                        if trade_dict:
+                            trades.append(BacktestTrade(
+                                backtest_id=backtest_id,
+                                trade_date=trade_dict["date"],
+                                stock_id=stock_id,
+                                direction=trade_dict["direction"],
+                                price=trade_dict["price"],
+                                quantity=trade_dict["quantity"],
+                                commission=trade_dict["commission"],
+                                tax=trade_dict["tax"],
+                                realized_pnl=trade_dict["realized_pnl"],
+                                reason="strategy",
+                            ))
 
-                cost_basis = avg_cost.get(stock_id, 0.0) * quantity
-                realized_pnl = proceeds - commission - tax - cost_basis
+                elif signal.signal_type == SignalType.SELL and position_manager.holding_quantity > 0:
+                    # Sell all holdings on strategy sell signal
+                    trade_dict = position_manager.sell(
+                        close_price, current_date,
+                    )
+                    if trade_dict:
+                        trades.append(BacktestTrade(
+                            backtest_id=backtest_id,
+                            trade_date=trade_dict["date"],
+                            stock_id=stock_id,
+                            direction=trade_dict["direction"],
+                            price=trade_dict["price"],
+                            quantity=trade_dict["quantity"],
+                            commission=trade_dict["commission"],
+                            tax=trade_dict["tax"],
+                            realized_pnl=trade_dict["realized_pnl"],
+                            reason="strategy",
+                        ))
 
-                cash += proceeds - commission - tax
-                holdings[stock_id] = current_holding - quantity
-
-                if holdings[stock_id] == 0:
-                    avg_cost.pop(stock_id, None)
-
-                trades.append(BacktestTrade(
-                    backtest_id=backtest_id,
-                    trade_date=current_date,
-                    stock_id=stock_id,
-                    direction="sell",
-                    price=close_price,
-                    quantity=quantity,
-                    commission=commission,
-                    tax=tax,
-                    realized_pnl=realized_pnl,
-                ))
-
-            # Calculate daily portfolio value
-            position_value = sum(
-                qty * self._get_close(market_data.prices, sid, current_date)
-                for sid, qty in holdings.items()
-                if qty > 0
-            )
-            total_equity = cash + position_value
+            # 4. Record daily equity
+            total_equity = position_manager.get_total_equity(close_price)
+            position_value = total_equity - position_manager.available_capital
             daily_ret = (
                 (total_equity - prev_equity) / prev_equity
                 if prev_equity > 0 else None
@@ -294,8 +345,9 @@ class BacktestRunner:
             daily_returns.append(BacktestDailyReturn(
                 backtest_id=backtest_id,
                 date=current_date,
+                stock_id=stock_id,
                 position_value=position_value,
-                cash=cash,
+                cash=position_manager.available_capital,
                 total_equity=total_equity,
                 daily_return=daily_ret,
             ))

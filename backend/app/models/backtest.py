@@ -12,7 +12,9 @@ class Backtest(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     strategy_id: Mapped[int] = mapped_column(Integer, ForeignKey("strategies.id"))
-    stock_id: Mapped[str] = mapped_column(String(10), ForeignKey("stocks.stock_id"))
+    stock_id: Mapped[str | None] = mapped_column(
+        String(10), ForeignKey("stocks.stock_id"), nullable=True
+    )
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     initial_capital: Mapped[float] = mapped_column(Float, default=1000000.0)
@@ -22,6 +24,9 @@ class Backtest(Base):
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    mode: Mapped[str] = mapped_column(String(10), default="single")
+    stock_ids: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    risk_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     trades: Mapped[list["BacktestTrade"]] = relationship(
         back_populates="backtest", cascade="all, delete-orphan"
@@ -46,6 +51,7 @@ class BacktestTrade(Base):
     commission: Mapped[float] = mapped_column(Float)
     tax: Mapped[float] = mapped_column(Float)
     realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str] = mapped_column(String(20), default="strategy")
 
     backtest: Mapped["Backtest"] = relationship(back_populates="trades")
 
@@ -58,6 +64,7 @@ class BacktestDailyReturn(Base):
         Integer, ForeignKey("backtests.id", ondelete="CASCADE")
     )
     date: Mapped[date] = mapped_column(Date)
+    stock_id: Mapped[str | None] = mapped_column(String(10), nullable=True)
     position_value: Mapped[float] = mapped_column(Float)
     cash: Mapped[float] = mapped_column(Float)
     total_equity: Mapped[float] = mapped_column(Float)

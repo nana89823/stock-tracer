@@ -127,6 +127,15 @@ export const StrategySchema = z.object({
 export const StrategyListSchema = z.array(StrategySchema);
 
 // --- Backtest ---
+export const RiskParamsSchema = z.object({
+  stop_loss_pct: z.number().nullable(),
+  take_profit_pct: z.number().nullable(),
+  trailing_stop_pct: z.number().nullable(),
+  position_size_pct: z.number(),
+  allow_scale_in: z.boolean(),
+  max_scale_in_times: z.number(),
+});
+
 export const BacktestTradeSchema = z.object({
   id: z.number(),
   trade_date: z.string(),
@@ -137,6 +146,7 @@ export const BacktestTradeSchema = z.object({
   commission: z.number(),
   tax: z.number(),
   realized_pnl: z.number().nullable(),
+  reason: z.string().nullable().optional(),
 });
 
 export const BacktestDailyReturnSchema = z.object({
@@ -145,6 +155,7 @@ export const BacktestDailyReturnSchema = z.object({
   cash: z.number(),
   total_equity: z.number(),
   daily_return: z.number().nullable(),
+  stock_id: z.string().nullable().optional(),
 });
 
 export const BacktestResultSchema = z.object({
@@ -159,10 +170,15 @@ export const BacktestResultSchema = z.object({
   final_equity: z.number(),
 });
 
+export const PerStockResultSchema = z.object({
+  stock_id: z.string(),
+  metrics: BacktestResultSchema,
+});
+
 export const BacktestSchema = z.object({
   id: z.number(),
   strategy_id: z.number(),
-  stock_id: z.string(),
+  stock_id: z.string().nullable(),
   start_date: z.string(),
   end_date: z.string(),
   initial_capital: z.number(),
@@ -171,6 +187,10 @@ export const BacktestSchema = z.object({
   result: BacktestResultSchema.nullable(),
   created_at: z.string(),
   completed_at: z.string().nullable(),
+  mode: z.enum(["single", "batch", "portfolio"]).optional(),
+  stock_ids: z.array(z.string()).nullable().optional(),
+  risk_params: RiskParamsSchema.nullable().optional(),
+  per_stock_results: z.array(PerStockResultSchema).nullable().optional(),
   trades: z.array(BacktestTradeSchema).optional(),
   daily_returns: z.array(BacktestDailyReturnSchema).optional(),
 });
