@@ -15,12 +15,21 @@ class TestMajorHoldersSpider:
         spider = MajorHoldersSpider()
         assert spider.name == "major_holders"
 
-    def test_start_urls(self):
-        """Spider should have correct start URL."""
+    def test_start_requests_default(self):
+        """Spider should use TDCC open data URL by default."""
         spider = MajorHoldersSpider()
-        assert len(spider.start_urls) == 1
-        assert "opendata.tdcc.com.tw" in spider.start_urls[0]
-        assert "id=1-5" in spider.start_urls[0]
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "opendata.tdcc.com.tw" in requests[0].url
+        assert "id=1-5" in requests[0].url
+
+    def test_start_requests_with_date(self):
+        """Spider should use smart TDCC API with date for backfill."""
+        spider = MajorHoldersSpider(date="20260123")
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "smart.tdcc.com.tw" in requests[0].url
+        assert "20260123" in requests[0].url
 
     def test_parse_csv_returns_items(self, major_holders_csv):
         """Parse should return MajorHoldersItem from CSV response."""
@@ -34,7 +43,8 @@ class TestMajorHoldersSpider:
 
         items = list(spider.parse(response))
 
-        assert len(items) == 7
+        # 7 rows in CSV, but level 16 is dropped → 6 items
+        assert len(items) == 6
         assert all(isinstance(item, MajorHoldersItem) for item in items)
 
     def test_parse_extracts_stock_id(self, major_holders_csv):
@@ -83,7 +93,8 @@ class TestMajorHoldersSpider:
         levels = [item["holding_level"] for item in tsmc_items]
         assert 1 in levels
         assert 15 in levels
-        assert 17 in levels
+        # Original level 16 is dropped; level 17 is remapped to 16
+        assert 16 in levels
 
     def test_parse_extracts_holder_count(self, major_holders_csv):
         """Parse should extract holder count correctly."""
@@ -97,7 +108,8 @@ class TestMajorHoldersSpider:
 
         items = list(spider.parse(response))
         tsmc_level1 = next(
-            item for item in items
+            item
+            for item in items
             if item["stock_id"] == "2330" and item["holding_level"] == 1
         )
 
@@ -114,12 +126,14 @@ class TestMajorHoldersSpider:
         )
 
         items = list(spider.parse(response))
-        tsmc_level17 = next(
-            item for item in items
-            if item["stock_id"] == "2330" and item["holding_level"] == 17
+        # Level 17 is remapped to 16; share_count is ÷1000 (股→張)
+        tsmc_level16 = next(
+            item
+            for item in items
+            if item["stock_id"] == "2330" and item["holding_level"] == 16
         )
 
-        assert tsmc_level17["share_count"] == 10000000000
+        assert tsmc_level16["share_count"] == 10000000
 
     def test_parse_extracts_holding_ratio(self, major_holders_csv):
         """Parse should extract holding ratio correctly."""
@@ -132,12 +146,14 @@ class TestMajorHoldersSpider:
         )
 
         items = list(spider.parse(response))
-        tsmc_level17 = next(
-            item for item in items
-            if item["stock_id"] == "2330" and item["holding_level"] == 17
+        # Level 17 is remapped to 16
+        tsmc_level16 = next(
+            item
+            for item in items
+            if item["stock_id"] == "2330" and item["holding_level"] == 16
         )
 
-        assert tsmc_level17["holding_ratio"] == 38.46
+        assert tsmc_level16["holding_ratio"] == 38.46
 
     def test_parse_handles_empty_response(self):
         """Parse should handle empty CSV gracefully."""
@@ -179,15 +195,14 @@ class TestMajorHoldersCalculation:
         items = list(spider.parse(response))
         tsmc_items = [item for item in items if item["stock_id"] == "2330"]
 
-        # 400張以上為級距 12-17 (level >= 12)
+        # 400張以上為級距 12-16 (level >= 12, after remap)
+        # Original level 16 is dropped, level 17 remapped to 16
         major_holders_ratio = sum(
-            item["holding_ratio"]
-            for item in tsmc_items
-            if item["holding_level"] >= 12
+            item["holding_ratio"] for item in tsmc_items if item["holding_level"] >= 12
         )
 
-        # 15級: 19.23% + 16級: 38.46% + 17級: 38.46% = 96.15%
-        assert major_holders_ratio == pytest.approx(96.15, rel=0.01)
+        # 15級: 19.23% + 16級(was 17): 38.46% = 57.69%
+        assert major_holders_ratio == pytest.approx(57.69, rel=0.01)
 
     def test_calculate_major_holders_count(self, major_holders_csv):
         """Should calculate 400張以上大戶人數 correctly."""
@@ -203,10 +218,8 @@ class TestMajorHoldersCalculation:
         tsmc_items = [item for item in items if item["stock_id"] == "2330"]
 
         major_holders_count = sum(
-            item["holder_count"]
-            for item in tsmc_items
-            if item["holding_level"] >= 12
+            item["holder_count"] for item in tsmc_items if item["holding_level"] >= 12
         )
 
-        # 15級: 100 + 16級: 50 + 17級: 10 = 160人
-        assert major_holders_count == 160
+        # 15級: 100 + 16級(was 17): 10 = 110人 (original 16 was dropped)
+        assert major_holders_count == 110

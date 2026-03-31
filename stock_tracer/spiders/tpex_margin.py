@@ -4,6 +4,7 @@ Source: https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_b
 """
 
 import csv
+from datetime import datetime
 from io import StringIO
 
 import scrapy
@@ -16,9 +17,27 @@ class TpexMarginSpider(scrapy.Spider):
 
     name = "tpex_margin"
     market_type = "tpex"
-    start_urls = [
-        "https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_bal_result.php?l=zh-tw&o=data"
-    ]
+
+    def __init__(self, date=None, *args, **kwargs):
+        """Initialize spider with optional date argument.
+
+        Args:
+            date: Date in YYYYMMDD format. Defaults to today.
+        """
+        super().__init__(*args, **kwargs)
+        if date:
+            self.target_date = date
+        else:
+            self.target_date = datetime.now().strftime("%Y%m%d")
+
+    def start_requests(self):
+        # Convert YYYYMMDD to ROC date format YYY/MM/DD for TPEX API
+        year = int(self.target_date[:4]) - 1911
+        month = self.target_date[4:6]
+        day = self.target_date[6:8]
+        roc_date = f"{year}/{month}/{day}"
+        url = f"https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_bal_result.php?l=zh-tw&o=data&d={roc_date}&s=0,asc,0"
+        yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """Parse CSV response and yield MarginTradingItem.

@@ -19,12 +19,20 @@ class TestRawPriceSpider:
         spider = RawPriceSpider()
         assert spider.name == "raw_price"
 
-    def test_start_urls(self):
-        """Spider should have correct start URL."""
+    def test_start_requests_default(self):
+        """Spider should generate correct start URL with today's date."""
         spider = RawPriceSpider()
-        assert len(spider.start_urls) == 1
-        assert "STOCK_DAY_ALL" in spider.start_urls[0]
-        assert "response=open_data" in spider.start_urls[0]
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "STOCK_DAY_ALL" in requests[0].url
+        assert "response=open_data" in requests[0].url
+
+    def test_start_requests_with_date(self):
+        """Spider should accept date argument for backfill."""
+        spider = RawPriceSpider(date="20260301")
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "date=20260301" in requests[0].url
 
     def test_parse_csv_returns_items(self, raw_price_csv):
         """Parse should return RawPriceItem from CSV response."""

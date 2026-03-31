@@ -4,7 +4,7 @@ Source: https://bsr.twse.com.tw/bshtm/bsContent.aspx?StkNo={stock_id}
 Format: CSV (Big5 encoded)
 """
 
-from datetime import date
+from datetime import datetime
 
 import scrapy
 
@@ -30,16 +30,30 @@ class BrokerTradingSpider(scrapy.Spider):
         "CONCURRENT_REQUESTS": 1,
     }
 
-    def __init__(self, stock_ids=None, *args, **kwargs):
+    def __init__(self, stock_ids=None, date=None, *args, **kwargs):
+        """Initialize spider with optional stock_ids and date arguments.
+
+        Args:
+            stock_ids: Comma-separated stock IDs. Defaults to top 20.
+            date: Date in YYYYMMDD format. Defaults to today.
+        """
         super().__init__(*args, **kwargs)
         if stock_ids:
             self.stock_ids = [s.strip() for s in stock_ids.split(",")]
         else:
             self.stock_ids = [s.strip() for s in DEFAULT_STOCK_IDS.split(",")]
+        if date:
+            self.target_date = date
+        else:
+            self.target_date = datetime.now().strftime("%Y%m%d")
 
     def start_requests(self):
+        # Convert YYYYMMDD to TWSE BSR date format: YYYY-MM-DD
+        formatted_date = (
+            f"{self.target_date[:4]}-{self.target_date[4:6]}-{self.target_date[6:8]}"
+        )
         for stock_id in self.stock_ids:
-            url = f"https://bsr.twse.com.tw/bshtm/bsContent.aspx?StkNo={stock_id}&RecCount=63"
+            url = f"https://bsr.twse.com.tw/bshtm/bsContent.aspx?StkNo={stock_id}&RecCount=63&curDate={formatted_date}"
             yield scrapy.Request(
                 url,
                 callback=self.parse,
@@ -58,7 +72,9 @@ class BrokerTradingSpider(scrapy.Spider):
             self.logger.warning(f"Empty response for stock {stock_id}")
             return
 
-        today = date.today().isoformat()
+        iso_date = (
+            f"{self.target_date[:4]}-{self.target_date[4:6]}-{self.target_date[6:8]}"
+        )
         lines = text.strip().splitlines()
 
         # Skip first 3 lines (title, stock code, column headers)
@@ -119,10 +135,12 @@ class BrokerTradingSpider(scrapy.Spider):
         for (broker_id, sid), data in aggregated.items():
             total_volume = data["buy_vol"] + data["sell_vol"]
             total_value = data["buy_value"] + data["sell_value"]
-            avg_price = round(total_value / total_volume, 2) if total_volume > 0 else 0.0
+            avg_price = (
+                round(total_value / total_volume, 2) if total_volume > 0 else 0.0
+            )
 
             yield BrokerTradingItem(
-                date=today,
+                date=iso_date,
                 stock_id=sid,
                 broker_id=broker_id,
                 broker_name=data["broker_name"],

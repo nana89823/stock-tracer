@@ -4,6 +4,7 @@ Source: https://www.twse.com.tw/fund/T86?response=json&date=&selectType=ALL
 """
 
 import json
+from datetime import datetime
 
 import scrapy
 
@@ -15,9 +16,22 @@ class RawChipSpider(scrapy.Spider):
 
     name = "raw_chip"
     market_type = "twse"
-    start_urls = [
-        "https://www.twse.com.tw/fund/T86?response=json&date=&selectType=ALL"
-    ]
+
+    def __init__(self, date=None, *args, **kwargs):
+        """Initialize spider with optional date argument.
+
+        Args:
+            date: Date in YYYYMMDD format. Defaults to today.
+        """
+        super().__init__(*args, **kwargs)
+        if date:
+            self.target_date = date
+        else:
+            self.target_date = datetime.now().strftime("%Y%m%d")
+
+    def start_requests(self):
+        url = f"https://www.twse.com.tw/fund/T86?response=json&date={self.target_date}&selectType=ALL"
+        yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """Parse JSON response and yield RawChipItem.

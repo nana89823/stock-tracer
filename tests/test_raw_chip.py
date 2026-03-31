@@ -18,12 +18,20 @@ class TestRawChipSpider:
         spider = RawChipSpider()
         assert spider.name == "raw_chip"
 
-    def test_start_urls(self):
-        """Spider should have correct start URL."""
+    def test_start_requests_default(self):
+        """Spider should generate correct start URL with today's date."""
         spider = RawChipSpider()
-        assert len(spider.start_urls) == 1
-        assert "T86" in spider.start_urls[0]
-        assert "response=json" in spider.start_urls[0]
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "T86" in requests[0].url
+        assert "response=json" in requests[0].url
+
+    def test_start_requests_with_date(self):
+        """Spider should accept date argument for backfill."""
+        spider = RawChipSpider(date="20260301")
+        requests = list(spider.start_requests())
+        assert len(requests) == 1
+        assert "date=20260301" in requests[0].url
 
     def test_parse_json_returns_items(self, raw_chip_json):
         """Parse should return RawChipItem from JSON response."""
