@@ -4,6 +4,7 @@ Source: https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=open_data
 """
 
 import csv
+from datetime import datetime
 from io import StringIO
 
 import scrapy
@@ -16,9 +17,22 @@ class RawPriceSpider(scrapy.Spider):
 
     name = "raw_price"
     market_type = "twse"
-    start_urls = [
-        "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=open_data"
-    ]
+
+    def __init__(self, date=None, *args, **kwargs):
+        """Initialize spider with optional date argument.
+
+        Args:
+            date: Date in YYYYMMDD format. Defaults to today.
+        """
+        super().__init__(*args, **kwargs)
+        if date:
+            self.target_date = date
+        else:
+            self.target_date = datetime.now().strftime("%Y%m%d")
+
+    def start_requests(self):
+        url = f"https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=open_data&date={self.target_date}"
+        yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """Parse CSV response and yield RawPriceItem.

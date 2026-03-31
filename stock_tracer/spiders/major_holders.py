@@ -33,12 +33,37 @@ from stock_tracer.items import MajorHoldersItem
 
 
 class MajorHoldersSpider(scrapy.Spider):
-    """Spider to scrape shareholder distribution from TDCC."""
+    """Spider to scrape shareholder distribution from TDCC.
+
+    Note: The TDCC open data API (getOD.ashx?id=1-5) only returns the latest
+    weekly snapshot. The date parameter is accepted for interface consistency
+    but TDCC may not return data for arbitrary dates. For historical backfill,
+    the spider also tries the TDCC smart query API which supports date ranges.
+    """
 
     name = "major_holders"
-    start_urls = [
-        "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
-    ]
+
+    def __init__(self, date=None, *args, **kwargs):
+        """Initialize spider with optional date argument.
+
+        Args:
+            date: Date in YYYYMMDD format. Defaults to latest (no date filter).
+        """
+        super().__init__(*args, **kwargs)
+        self.target_date = date
+
+    def start_requests(self):
+        if self.target_date:
+            # Use TDCC smart query API for historical data
+            # TDCC publishes data weekly (every Friday)
+            url = (
+                "https://smart.tdcc.com.tw/opendata/getOD.ashx"
+                f"?id=1-5&startDate={self.target_date}&endDate={self.target_date}"
+            )
+        else:
+            # Default: latest snapshot
+            url = "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
+        yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """Parse CSV response and yield MajorHoldersItem.

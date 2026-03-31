@@ -4,7 +4,7 @@ Source: https://www.twse.com.tw/exchangeReport/MI_MARGN?response=open_data&selec
 """
 
 import csv
-from datetime import date
+from datetime import datetime
 from io import StringIO
 
 import scrapy
@@ -17,9 +17,22 @@ class MarginTradingSpider(scrapy.Spider):
 
     name = "margin_trading"
     market_type = "twse"
-    start_urls = [
-        "https://www.twse.com.tw/exchangeReport/MI_MARGN?response=open_data&selectType=ALL"
-    ]
+
+    def __init__(self, date=None, *args, **kwargs):
+        """Initialize spider with optional date argument.
+
+        Args:
+            date: Date in YYYYMMDD format. Defaults to today.
+        """
+        super().__init__(*args, **kwargs)
+        if date:
+            self.target_date = date
+        else:
+            self.target_date = datetime.now().strftime("%Y%m%d")
+
+    def start_requests(self):
+        url = f"https://www.twse.com.tw/exchangeReport/MI_MARGN?response=open_data&selectType=ALL&date={self.target_date}"
+        yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         """Parse CSV response and yield MarginTradingItem.
@@ -54,14 +67,17 @@ class MarginTradingSpider(scrapy.Spider):
         except StopIteration:
             return
 
-        today = date.today().isoformat()
+        # Use date from target_date parameter
+        iso_date = (
+            f"{self.target_date[:4]}-{self.target_date[4:6]}-{self.target_date[6:8]}"
+        )
 
         for row in reader:
             if len(row) < 16:
                 continue
 
             yield MarginTradingItem(
-                date=today,
+                date=iso_date,
                 stock_id=row[0].strip(),
                 stock_name=row[1].strip(),
                 margin_buy=self._parse_number(row[2]),
