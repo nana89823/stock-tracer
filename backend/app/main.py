@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text, update
 
 from app.api.alerts import router as alerts_router
+from app.api.email_reports import router as email_reports_router
 from app.api.backtests import router as backtests_router
 from app.api.notifications import router as notifications_router
 from app.api.stocks import router as stocks_router
@@ -63,7 +64,12 @@ app.include_router(stocks_router, prefix="/api/v1/stocks", tags=["stocks"])
 app.include_router(backtests_router, prefix="/api/v1/backtests", tags=["backtests"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(watchlist_router, prefix="/api/v1/watchlist", tags=["watchlist"])
-app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(
+    notifications_router, prefix="/api/v1/notifications", tags=["notifications"]
+)
+app.include_router(
+    email_reports_router, prefix="/api/v1/email-reports", tags=["email-reports"]
+)
 
 
 @app.get("/health")
