@@ -201,9 +201,7 @@ def get_market_summary(session: Session, target_date: date) -> dict:
     }
 
 
-def get_user_alerts(
-    session: Session, user_id: int, target_date: date
-) -> list[dict]:
+def get_user_alerts(session: Session, user_id: int, target_date: date) -> list[dict]:
     """Get alert notifications triggered today for the user."""
     stmt = (
         select(
