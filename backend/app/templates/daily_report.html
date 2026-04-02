@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Tracer 每日報告 — {{ report_date }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,'Microsoft JhengHei',sans-serif;color:#333;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;">
+<tr><td align="center" style="padding:20px 10px;">
+
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr>
+<td style="background:#1a237e;padding:24px 30px;text-align:center;">
+  <h1 style="margin:0;color:#fff;font-size:22px;">Stock Tracer 每日報告</h1>
+  <p style="margin:8px 0 0;color:#bbdefb;font-size:14px;">{{ report_date }}</p>
+</td>
+</tr>
+
+<!-- Section E: Market Summary -->
+{% if market %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    大盤概況
+  </h2>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:8px;">
+      <span style="display:inline-block;background:#ffebee;color:#d32f2f;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:bold;">
+        &#9650; 上漲 {{ market.up_count }}
+      </span>
+    </td>
+    <td align="center" style="padding:8px;">
+      <span style="display:inline-block;background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:bold;">
+        &#9660; 下跌 {{ market.down_count }}
+      </span>
+    </td>
+    <td align="center" style="padding:8px;">
+      <span style="display:inline-block;background:#f5f5f5;color:#616161;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:bold;">
+        &#9644; 平盤 {{ market.flat_count }}
+      </span>
+    </td>
+  </tr>
+  </table>
+  <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="margin-top:10px;font-size:13px;">
+  <tr>
+    <td style="color:#757575;">總成交量</td>
+    <td style="text-align:right;font-weight:bold;">{{ "{:,.0f}".format(market.total_volume) }} 張</td>
+    <td style="color:#757575;">外資合計</td>
+    <td style="text-align:right;font-weight:bold;color:{% if market.foreign_total >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(market.foreign_total) }}
+    </td>
+  </tr>
+  <tr>
+    <td style="color:#757575;">投信合計</td>
+    <td style="text-align:right;font-weight:bold;color:{% if market.trust_total >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(market.trust_total) }}
+    </td>
+    <td style="color:#757575;">自營商合計</td>
+    <td style="text-align:right;font-weight:bold;color:{% if market.dealer_total >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(market.dealer_total) }}
+    </td>
+  </tr>
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Section A: Prices -->
+{% if prices %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    自選股行情
+  </h2>
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+  <thead>
+  <tr style="background:#e8eaf6;">
+    <th style="text-align:left;padding:8px 6px;">代號</th>
+    <th style="text-align:left;padding:8px 6px;">名稱</th>
+    <th style="text-align:right;padding:8px 6px;">開盤</th>
+    <th style="text-align:right;padding:8px 6px;">最高</th>
+    <th style="text-align:right;padding:8px 6px;">最低</th>
+    <th style="text-align:right;padding:8px 6px;">收盤</th>
+    <th style="text-align:right;padding:8px 6px;">漲跌</th>
+    <th style="text-align:right;padding:8px 6px;">成交量</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for p in prices %}
+  <tr style="{% if loop.index is odd %}background:#fafafa;{% else %}background:#fff;{% endif %}">
+    <td style="padding:6px;">{{ p.stock_id }}</td>
+    <td style="padding:6px;">{{ p.stock_name }}</td>
+    <td style="text-align:right;padding:6px;">{{ "%.2f"|format(p.open_price) }}</td>
+    <td style="text-align:right;padding:6px;">{{ "%.2f"|format(p.high_price) }}</td>
+    <td style="text-align:right;padding:6px;">{{ "%.2f"|format(p.low_price) }}</td>
+    <td style="text-align:right;padding:6px;font-weight:bold;">{{ "%.2f"|format(p.close_price) }}</td>
+    <td style="text-align:right;padding:6px;font-weight:bold;color:{% if p.price_change > 0 %}#d32f2f{% elif p.price_change < 0 %}#2e7d32{% else %}#616161{% endif %};">
+      {{ "%+.2f"|format(p.price_change) }}
+    </td>
+    <td style="text-align:right;padding:6px;">{{ "{:,.0f}".format(p.trade_volume) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Section B: Chips -->
+{% if chips %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    三大法人買賣超
+  </h2>
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+  <thead>
+  <tr style="background:#e8eaf6;">
+    <th style="text-align:left;padding:8px 6px;">代號</th>
+    <th style="text-align:left;padding:8px 6px;">名稱</th>
+    <th style="text-align:right;padding:8px 6px;">外資</th>
+    <th style="text-align:right;padding:8px 6px;">投信</th>
+    <th style="text-align:right;padding:8px 6px;">自營商</th>
+    <th style="text-align:right;padding:8px 6px;">合計</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for c in chips %}
+  <tr style="{% if loop.index is odd %}background:#fafafa;{% else %}background:#fff;{% endif %}">
+    <td style="padding:6px;">{{ c.stock_id }}</td>
+    <td style="padding:6px;">{{ c.stock_name }}</td>
+    <td style="text-align:right;padding:6px;color:{% if c.foreign_net >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(c.foreign_net) }}
+    </td>
+    <td style="text-align:right;padding:6px;color:{% if c.trust_net >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(c.trust_net) }}
+    </td>
+    <td style="text-align:right;padding:6px;color:{% if c.dealer_net >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(c.dealer_net) }}
+    </td>
+    <td style="text-align:right;padding:6px;font-weight:bold;color:{% if c.total_net >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(c.total_net) }}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Section C: Margin -->
+{% if margin %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    融資融券
+  </h2>
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+  <thead>
+  <tr style="background:#e8eaf6;">
+    <th style="text-align:left;padding:8px 6px;">代號</th>
+    <th style="text-align:right;padding:8px 6px;">融資餘額</th>
+    <th style="text-align:right;padding:8px 6px;">融資增減</th>
+    <th style="text-align:right;padding:8px 6px;">融券餘額</th>
+    <th style="text-align:right;padding:8px 6px;">融券增減</th>
+    <th style="text-align:right;padding:8px 6px;">券資比</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for m in margin %}
+  <tr style="{% if loop.index is odd %}background:#fafafa;{% else %}background:#fff;{% endif %}">
+    <td style="padding:6px;">{{ m.stock_id }}</td>
+    <td style="text-align:right;padding:6px;">{{ "{:,.0f}".format(m.margin_balance) }}</td>
+    <td style="text-align:right;padding:6px;color:{% if m.margin_change >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(m.margin_change) }}
+    </td>
+    <td style="text-align:right;padding:6px;">{{ "{:,.0f}".format(m.short_balance) }}</td>
+    <td style="text-align:right;padding:6px;color:{% if m.short_change >= 0 %}#d32f2f{% else %}#2e7d32{% endif %};">
+      {{ "{:+,.0f}".format(m.short_change) }}
+    </td>
+    <td style="text-align:right;padding:6px;">{{ "{:.1f}".format(m.offset) }}%</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Section D: Holders -->
+{% if holders %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    大戶持股 (400張以上)
+  </h2>
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+  <thead>
+  <tr style="background:#e8eaf6;">
+    <th style="text-align:left;padding:8px 6px;">代號</th>
+    <th style="text-align:right;padding:8px 6px;">持股比例</th>
+    <th style="text-align:right;padding:8px 6px;">人數</th>
+    <th style="text-align:right;padding:8px 6px;">比例變動</th>
+    <th style="text-align:right;padding:8px 6px;">人數變動</th>
+    <th style="text-align:left;padding:8px 6px;">資料日</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for h in holders %}
+  <tr style="{% if loop.index is odd %}background:#fafafa;{% else %}background:#fff;{% endif %}">
+    <td style="padding:6px;">{{ h.stock_id }}</td>
+    <td style="text-align:right;padding:6px;">{{ "%.2f"|format(h.holder_ratio) }}%</td>
+    <td style="text-align:right;padding:6px;">{{ "{:,}".format(h.holder_count) }}</td>
+    <td style="text-align:right;padding:6px;color:{% if h.ratio_delta > 0 %}#d32f2f{% elif h.ratio_delta < 0 %}#2e7d32{% else %}#616161{% endif %};">
+      {{ "%+.2f"|format(h.ratio_delta) }}%
+    </td>
+    <td style="text-align:right;padding:6px;color:{% if h.count_delta > 0 %}#d32f2f{% elif h.count_delta < 0 %}#2e7d32{% else %}#616161{% endif %};">
+      {{ "{:+,}".format(h.count_delta) }}
+    </td>
+    <td style="padding:6px;">{{ h.data_date }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Section F: Alerts -->
+{% if alerts %}
+<tr>
+<td style="padding:20px 30px 10px;">
+  <h2 style="margin:0 0 12px;font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+    到價提醒
+  </h2>
+  <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;border-collapse:collapse;">
+  {% for a in alerts %}
+  <tr style="{% if loop.index is odd %}background:#fff3e0;{% else %}background:#fff8e1;{% endif %}">
+    <td style="padding:8px 6px;">
+      <strong>{{ a.title }}</strong><br>
+      <span style="color:#757575;">{{ a.message }}</span>
+      <br>
+      <span style="color:#9e9e9e;font-size:11px;">{{ a.created_at.strftime("%H:%M") }}</span>
+    </td>
+  </tr>
+  {% endfor %}
+  </table>
+</td>
+</tr>
+{% endif %}
+
+<!-- Footer -->
+<tr>
+<td style="padding:20px 30px;text-align:center;border-top:1px solid #e0e0e0;">
+  <p style="margin:0;font-size:12px;color:#9e9e9e;">
+    此郵件由 Stock Tracer 自動發送，請勿直接回覆。<br>
+    如需調整通知設定，請登入系統修改偏好。
+  </p>
+</td>
+</tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
