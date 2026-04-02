@@ -21,6 +21,8 @@ celery.conf.task_default_queue = "default"
 celery.conf.task_routes = {
     "app.tasks.crawl_task.run_spider": {"queue": "crawl"},
     "app.tasks.alert_checker.check_price_alerts": {"queue": "crawl"},
+    "app.tasks.email_report.dispatch_daily_reports": {"queue": "crawl"},
+    "app.tasks.email_report.send_user_report": {"queue": "crawl"},
     "run_backtest": {"queue": "backtest"},
 }
 
@@ -74,9 +76,15 @@ celery.conf.beat_schedule = {
         "task": "app.tasks.alert_checker.check_price_alerts",
         "schedule": crontab(hour=14, minute=20, day_of_week="1-5"),
     },
+    # --- 每日報告（18:30，大戶持股爬完後發送）---
+    "send-daily-reports": {
+        "task": "app.tasks.email_report.dispatch_daily_reports",
+        "schedule": crontab(hour=18, minute=30, day_of_week="1-5"),
+    },
 }
 
 # Explicitly import tasks (autodiscover unreliable with Docker volume mounts)
 import app.tasks.crawl_task  # noqa: F401, E402
 import app.tasks.backtest_task  # noqa: F401, E402
 import app.tasks.alert_checker  # noqa: F401, E402
+import app.tasks.email_report  # noqa: F401, E402
