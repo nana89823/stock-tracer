@@ -1,0 +1,40 @@
+Stock Tracer 每日報告 — {{ report_date }}
+============================================================
+{% if market %}
+【大盤概況】
+  上漲: {{ market.up_count }}  下跌: {{ market.down_count }}  平盤: {{ market.flat_count }}
+  總成交量: {{ "{:,.0f}".format(market.total_volume) }} 張
+  外資: {{ "{:+,.0f}".format(market.foreign_total) }}  投信: {{ "{:+,.0f}".format(market.trust_total) }}  自營商: {{ "{:+,.0f}".format(market.dealer_total) }}
+{% endif %}
+{% if prices %}
+【自選股行情】
+{% for p in prices %}
+  {{ p.stock_id }} {{ p.stock_name }}  收盤: {{ "%.2f"|format(p.close_price) }}  漲跌: {{ "%+.2f"|format(p.price_change) }}  成交量: {{ "{:,.0f}".format(p.trade_volume) }}
+{% endfor %}
+{% endif %}
+{% if chips %}
+【三大法人買賣超】
+{% for c in chips %}
+  {{ c.stock_id }} {{ c.stock_name }}  外資: {{ "{:+,.0f}".format(c.foreign_net) }}  投信: {{ "{:+,.0f}".format(c.trust_net) }}  自營商: {{ "{:+,.0f}".format(c.dealer_net) }}  合計: {{ "{:+,.0f}".format(c.total_net) }}
+{% endfor %}
+{% endif %}
+{% if margin %}
+【融資融券】
+{% for m in margin %}
+  {{ m.stock_id }}  融資餘額: {{ "{:,.0f}".format(m.margin_balance) }} ({{ "{:+,.0f}".format(m.margin_change) }})  融券餘額: {{ "{:,.0f}".format(m.short_balance) }} ({{ "{:+,.0f}".format(m.short_change) }})  券資比: {{ "{:.1f}".format(m.offset) }}%
+{% endfor %}
+{% endif %}
+{% if holders %}
+【大戶持股 (400張以上)】
+{% for h in holders %}
+  {{ h.stock_id }}  持股比例: {{ "%.2f"|format(h.holder_ratio) }}% ({{ "%+.2f"|format(h.ratio_delta) }}%)  人數: {{ "{:,}".format(h.holder_count) }} ({{ "{:+,}".format(h.count_delta) }})  資料日: {{ h.data_date }}
+{% endfor %}
+{% endif %}
+{% if alerts %}
+【到價提醒】
+{% for a in alerts %}
+  {{ a.title }} — {{ a.message }} ({{ a.created_at.strftime("%H:%M") }})
+{% endfor %}
+{% endif %}
+------------------------------------------------------------
+此郵件由 Stock Tracer 自動發送，請勿直接回覆。
